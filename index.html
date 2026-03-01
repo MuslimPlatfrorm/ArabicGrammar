@@ -2,13 +2,14 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <title>Справочник Арабской Грамматики</title>
   
-  <!-- Подключение Tailwind CSS -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Подключение красивого арабского шрифта Amiri -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet">
@@ -27,677 +28,594 @@
   </script>
 
   <style>
-    /* Плавный переход для панели масштаба */
-    #zoom-panel {
-      transition: left 0.3s ease, right 0.3s ease, top 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    #zoom-panel.dragging {
-      transition: none; /* Отключаем плавность при перетаскивании */
-    }
-    
-    /* Скрываем стандартный скроллбар для эстетики, но оставляем функционал */
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-      background-color: rgba(52, 211, 153, 0.4);
-      border-radius: 10px;
-    }
+    body { -webkit-overflow-scrolling: touch; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background-color: rgba(52, 211, 153, 0.5); border-radius: 10px; }
   </style>
 </head>
-<body class="relative h-screen bg-emerald-50 font-sans selection:bg-emerald-200 overflow-hidden flex flex-col text-gray-800">
-
-  <!-- === ПАНЕЛЬ МАСШТАБА (ПЕРЕТАСКИВАЕМАЯ) === -->
-  <div
-    id="zoom-panel"
-    style="position: fixed; top: 16px; right: 16px; z-index: 50;"
-    class="bg-white/90 backdrop-blur shadow-md rounded-lg border border-emerald-200 p-1 flex items-center gap-1 opacity-85 hover:opacity-100 touch-none"
-  >
-    <div id="drag-handle" class="cursor-grab active:cursor-grabbing p-1 text-emerald-400 hover:text-emerald-600 touch-none flex items-center" title="Удерживайте, чтобы переместить">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
-    </div>
-    <button id="btn-zoom-out" class="p-1.5 hover:bg-emerald-100 rounded text-emerald-700 cursor-pointer touch-manipulation" title="Уменьшить">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-    </button>
-    <span id="scale-display" class="flex items-center justify-center min-w-[3rem] font-bold text-emerald-800 text-xs select-none">
-      100%
-    </span>
-    <button id="btn-zoom-in" class="p-1.5 hover:bg-emerald-100 rounded text-emerald-700 cursor-pointer touch-manipulation" title="Увеличить">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-    </button>
-    <div class="w-px bg-emerald-200 mx-0.5 h-5"></div>
-    <button id="btn-zoom-reset" class="p-1.5 hover:bg-emerald-100 rounded text-emerald-700 cursor-pointer touch-manipulation" title="Сбросить">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-    </button>
-  </div>
-
-  <!-- === ОБЛАСТЬ ПРОКРУТКИ ЦЕПИ === -->
-  <div class="flex-1 overflow-auto p-4 md:p-8 relative w-full h-full">
-
-
-<div 
-      id="zoom-container"
-      style="transform: scale(1); transform-origin: top center; width: fit-content; margin: 0 auto;"
-      class="transition-transform duration-200 ease-out pb-32 flex flex-col items-center"
-    >
-      
-      <!-- ==================== БЛОК 1: ОСНОВЫ (ВИДЫ СЛОВ И И'РАБ) ==================== -->
-      <div class="w-full max-w-4xl bg-white/90 backdrop-blur-sm rounded-xl p-4 sm:p-5 shadow-xl border border-emerald-100 min-w-[750px]">
-        <!-- Заголовок -->
-        <div class="flex flex-col items-center relative z-10">
-          <div class="inline-block bg-emerald-100/50 px-5 py-1.5 rounded-xl border border-emerald-200 shadow-sm z-10">
-            <h1 class="text-xl font-bold text-emerald-900 uppercase tracking-wide">Арабская Грамматика</h1>
-          </div>
-          <div class="w-0.5 h-3 bg-emerald-400"></div>
-          <div class="w-[240px] h-2 border-t-2 border-x-2 border-emerald-400 rounded-t-md"></div>
-          <div class="flex justify-center gap-4 relative">
-            <div class="flex flex-col items-center w-56 relative z-10">
-              <div class="bg-white border border-emerald-300 rounded-lg p-2 shadow-sm w-full">
-                <div class="text-2xl font-serif text-emerald-800 mb-1 text-center">النَّحْوُ</div>
-                <div class="text-[11px] text-gray-700 leading-tight text-center border-t border-emerald-100 pt-1">Наука, изучающая <span class="text-emerald-700 font-bold">окончание слов</span></div>
-              </div>
-            </div>
-            <div class="flex flex-col items-center w-56 relative z-10">
-              <div class="bg-white border border-emerald-300 rounded-lg p-2 shadow-sm w-full">
-                <div class="text-2xl font-serif text-emerald-800 mb-1 text-center">الصَّرْفُ</div>
-                <div class="text-[11px] text-gray-700 leading-tight text-center border-t border-emerald-100 pt-1">Наука, изучающая <span class="text-emerald-700 font-bold">основу слов</span></div>
-              </div>
-            </div>
-          </div>
-          <div class="flex justify-center mt-0.5 w-full relative z-0">
-            <svg width="244" height="20" viewBox="0 0 244 20" class="overflow-visible">
-              <path d="M 2,0 Q 2,10 17,10 L 107,10 Q 122,10 122,20 Q 122,10 137,10 L 227,10 Q 242,10 242,0" fill="none" stroke="#34d399" stroke-width="2" />
-            </svg>
-          </div>
-          <div class="flex flex-col items-center">
-            <span class="text-lg font-bold font-serif text-emerald-900">أَقْسَامُ الْكَلِمَةِ</span>
-            <span class="text-xs font-normal text-emerald-700">Виды слов</span>
-          </div>
-          <div class="w-0.5 h-4 bg-emerald-400 mt-0.5"></div>
-        </div>
-
-        <!-- СЛОВО -->
-        <div class="flex justify-center relative z-10">
-          <div class="w-48 bg-emerald-600 text-white rounded-lg p-2 text-center shadow-md ring-2 ring-emerald-200">
-            <div class="text-xl font-bold font-serif mb-0.5">الْكَلِمَةُ</div>
-            <div class="text-sm font-semibold uppercase">Слово</div>
-          </div>
-        </div>
-
-        <!-- ВЕТКИ СЛОВ -->
-        <div class="relative pt-3">
-          <div class="absolute top-0 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
-          <div class="absolute top-4 left-[16.666%] right-[16.666%] h-0.5 bg-emerald-400 z-0"></div>
-          <div class="absolute top-4 left-[16.666%] w-0.5 h-4 bg-emerald-400 z-0"></div>
-          <div class="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px] z-0"></div>
-          <div class="absolute top-4 right-[16.666%] w-0.5 h-4 bg-emerald-400 z-0"></div>
-
-          <div class="grid grid-cols-3 gap-3 relative z-10 pt-8">
-            <div class="flex flex-col items-center">
-              <div class="w-full bg-blue-50 border-t-2 border-blue-500 rounded-lg p-2 shadow-sm h-full flex flex-col">
-
-
-<div class="text-center mb-1"><span class="text-xl text-blue-800 font-serif font-bold block">الِاسْمُ</span><span class="text-[9px] font-bold text-gray-500 uppercase">Имя</span></div>
-                <div class="text-[11px] text-gray-700 mb-2 bg-white p-1.5 rounded border border-blue-100 leading-tight">Имеет <strong>самостоятельный смысл</strong>, <strong>не связан</strong> со временем.</div>
-              </div>
-            </div>
-            <div class="flex flex-col items-center">
-              <div class="w-full bg-amber-50 border-t-2 border-amber-500 rounded-lg p-2 shadow-sm h-full flex flex-col">
-                <div class="text-center mb-1"><span class="text-xl text-amber-800 font-serif font-bold block">الْفِعْلُ</span><span class="text-[9px] font-bold text-gray-500 uppercase">Глагол</span></div>
-                <div class="text-[11px] text-gray-700 mb-2 bg-white p-1.5 rounded border border-amber-100 leading-tight">Имеет <strong>самостоятельный смысл</strong>, <strong>обязательно связан</strong> со временем.</div>
-              </div>
-            </div>
-            <div class="flex flex-col items-center">
-              <div class="w-full bg-slate-50 border-t-2 border-slate-500 rounded-lg p-2 shadow-sm h-full flex flex-col">
-                <div class="text-center mb-1"><span class="text-xl text-slate-800 font-serif font-bold block">الْحَرْفُ</span><span class="text-[9px] font-bold text-gray-500 uppercase">Частица</span></div>
-                <div class="text-[11px] text-gray-700 mb-2 bg-white p-1.5 rounded border border-slate-200 leading-tight"><strong>Не имеет полного смысла</strong>; появляется только в связке с الاسم или الفعل.</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- СЛИЯНИЕ ВНИЗ К "СОСТОЯНИЕ СЛОВА" -->
-        <div class="relative h-8 w-full z-0 mt-3">
-          <div class="absolute top-0 left-[16.666%] w-0.5 h-4 bg-emerald-400"></div>
-          <div class="absolute top-0 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
-          <div class="absolute top-0 right-[16.666%] w-0.5 h-4 bg-emerald-400"></div>
-
-          <div class="absolute top-4 left-[16.666%] right-[16.666%] h-0.5 bg-emerald-400 z-0"></div>
-          <div class="absolute top-4 left-1/2 w-0.5 h-6 bg-emerald-400 -ml-[1px]"></div>
-        </div>
-
-        <!-- И'РАБ И МАБНИ -->
-        <div class="mt-1 pb-2">
-          <div class="flex flex-col items-center relative z-10 mb-4">
-            <div class="inline-block bg-emerald-100/50 px-5 py-1.5 rounded-xl border border-emerald-200 shadow-sm z-10 text-center">
-              <h2 class="text-xl font-bold font-serif text-emerald-800">الْإِعْرَابُ وَالْبِنَاءُ</h2>
-              <p class="text-[9px] font-normal uppercase text-emerald-600 tracking-widest">(СОСТОЯНИЕ СЛОВА)</p>
-            </div>
-            
-            <div class="relative w-full h-5 z-0">
-              <div class="absolute top-0 left-1/2 w-0.5 h-2.5 bg-emerald-400 -ml-[1px]"></div>
-              <div class="absolute top-2.5 left-[calc(25%-4px)] right-[calc(25%-4px)] h-0.5 bg-emerald-400"></div>
-              <div class="absolute top-2.5 left-[calc(25%-4px)] w-0.5 h-2.5 bg-emerald-400"></div>
-              <div class="absolute top-2.5 right-[calc(25%-4px)] w-0.5 h-2.5 bg-emerald-400"></div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <!-- МУ'РАБ -->
-            <div class="bg-green-50 p-3 rounded-xl border border-green-300">
-              <h3 class="text-lg font-bold text-green-900 font-serif mb-1">الْمُعْرَبُ <span class="text-xs font-sans text-green-700">(Изменяемое)</span></h3>
-              <p class="text-[10px] text-green-800 mb-2">Окончание слова меняется под воздействием факторов (падежей).</p>
-              <div class="space-y-1">
-
-
-<div class="bg-white p-1.5 rounded text-[10px] flex justify-between items-center"><span class="text-gray-500">الرَّفْعُ (Им.п.)</span> <span class="font-serif text-sm font-bold text-red-600">ــُـٌ</span></div>
-                <div class="bg-white p-1.5 rounded text-[10px] flex justify-between items-center"><span class="text-gray-500">النَّصْبُ (Вин.п.)</span> <span class="font-serif text-sm font-bold text-red-600">ــَـً</span></div>
-                <div class="bg-white p-1.5 rounded text-[10px] flex justify-between items-center"><span class="text-gray-500">الْجَرُّ (Род.п. - только для Имен)</span> <span class="font-serif text-sm font-bold text-red-600">ــِـٍ</span></div>
-                <div class="bg-white p-1.5 rounded text-[10px] flex justify-between items-center"><span class="text-gray-500">الْجَزْمُ (Усеч. - только для Глаголов)</span> <span class="font-serif text-sm font-bold text-red-600">ــْ</span></div>
-              </div>
-            </div>
-            
-            <!-- МАБНИ -->
-            <div class="bg-red-50 p-3 rounded-xl border border-red-300 flex flex-col">
-              <h3 class="text-lg font-bold text-red-900 font-serif mb-1">الْمَبْنِيُّ <span class="text-xs font-sans text-red-700">(Неизменяемое)</span></h3>
-              <p class="text-[10px] text-red-800 mb-2">Окончание слова <strong>не меняется</strong>. Сюда относятся:</p>
-              <ul class="text-[10px] list-disc list-inside mb-2 text-gray-700">
-                <li>Все частицы (الْحَرْفُ)</li>
-                <li>Глаголы: الْمَاضِي и الْأَمْرُ</li>
-                <li>6 видов имен (الِاسْمُ)</li>
-              </ul>
-              <div class="grid grid-cols-2 gap-1 mt-auto">
-                <div class="bg-white text-[9px] p-1 rounded border border-red-100 text-center">Местоимения</div>
-                <div class="bg-white text-[9px] p-1 rounded border border-red-100 text-center">Указательные</div>
-                <div class="bg-white text-[9px] p-1 rounded border border-red-100 text-center">Относительные</div>
-                <div class="bg-white text-[9px] p-1 rounded border border-red-100 text-center">Условия</div>
-                <div class="bg-white text-[9px] p-1 rounded border border-red-100 text-center">Вопросительные</div>
-                <div class="bg-white text-[9px] p-1 rounded border border-red-100 text-center">Обстоятельства</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ЗВЕНО ЦЕПИ -->
-      <div class="w-0.5 h-8 bg-emerald-400 mx-auto"></div>
-
-      <!-- ==================== БЛОК 2: РОД ИМЕНИ ==================== -->
-      <div class="w-full max-w-4xl bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-xl border border-pink-200 min-w-[750px]">
-        
-        <div class="flex flex-col items-center relative z-10 mb-4">
-          <div class="inline-block bg-pink-50 px-5 py-1.5 rounded-xl border border-pink-200 shadow-sm z-10 text-center">
-            <h2 class="text-xl font-bold font-serif text-pink-800">الْمُذَكَّرُ وَالْمُؤَنَّثُ</h2>
-            <p class="text-[9px] font-normal uppercase text-pink-600 tracking-widest">(РОД В АРАБСКОМ ЯЗЫКЕ)</p>
-          </div>
-
-          <div class="relative w-full h-5 z-0">
-            <div class="absolute top-0 left-1/2 w-0.5 h-2.5 bg-pink-400 -ml-[1px]"></div>
-            <div class="absolute top-2.5 left-[calc(25%-4px)] right-[calc(25%-4px)] h-0.5 bg-pink-400"></div>
-            <div class="absolute top-2.5 left-[calc(25%-4px)] w-0.5 h-2.5 bg-pink-400"></div>
-            <div class="absolute top-2.5 right-[calc(25%-4px)] w-0.5 h-2.5 bg-pink-400"></div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4 items-start">
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <h3 class="font-bold text-blue-900 font-serif text-lg text-center mb-2">الْمُذَكَّرُ <span class="text-xs font-sans">(Мужской род)</span></h3>
-
-
-<p class="text-[10px] text-blue-800 text-center">Основа всех слов. Не требует доказательств.</p>
-          </div>
-          <div class="bg-pink-50 border border-pink-200 rounded-lg p-3">
-            <h3 class="font-bold text-pink-900 font-serif text-lg text-center mb-2">الْمُؤَنَّثُ <span class="text-xs font-sans">(Женский род)</span></h3>
-            <p class="text-[10px] text-pink-800 font-bold mb-1">Внешние признаки:</p>
-            <div class="flex gap-2 mb-2">
-              <div class="bg-white p-1 rounded text-center flex-1 text-[11px] font-serif font-bold text-pink-700">ــَةٌ <br/><span class="text-[8px] text-gray-500 font-sans font-normal">(سَيَّارَةٌ)</span></div>
-              <div class="bg-white p-1 rounded text-center flex-1 text-[11px] font-serif font-bold text-pink-700">ــَى <br/><span class="text-[8px] text-gray-500 font-sans font-normal">(هُدَى)</span></div>
-              <div class="bg-white p-1 rounded text-center flex-1 text-[11px] font-serif font-bold text-pink-700">ــَاءُ <br/><span class="text-[8px] text-gray-500 font-sans font-normal">(بَيْضَاءُ)</span></div>
-            </div>
-            <p class="text-[10px] text-pink-800 font-bold mb-1">Без признаков (по смыслу):</p>
-            <p class="text-[9px] text-gray-700 leading-tight">Женщины (أُمٌّ), племена/народы (رُوس), города/страны (مَكَّةُ), парные части тела (يَدٌ - рука).</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- ЗВЕНО ЦЕПИ -->
-      <div class="w-0.5 h-8 bg-emerald-400 mx-auto"></div>
-
-      <!-- ==================== БЛОК 3: ЧИСЛО ИМЕНИ ==================== -->
-      <div class="w-full max-w-4xl bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-xl border border-indigo-200 min-w-[750px]">
-        
-        <div class="flex flex-col items-center relative z-10 mb-4">
-          <div class="inline-block bg-indigo-50 px-5 py-1.5 rounded-xl border border-indigo-200 shadow-sm z-10 text-center">
-            <h2 class="text-xl font-bold font-serif text-indigo-800">عَدَدُ الِاسْمِ</h2>
-            <p class="text-[9px] font-normal uppercase text-indigo-600 tracking-widest">(ЧИСЛО ИМЕНИ)</p>
-          </div>
-
-          <div class="relative w-full h-5 z-0">
-            <div class="absolute top-0 left-1/2 w-0.5 h-2.5 bg-indigo-400 -ml-[1px]"></div>
-            <div class="absolute top-2.5 left-[16.666%] right-[16.666%] h-0.5 bg-indigo-400"></div>
-            <div class="absolute top-2.5 left-[16.666%] w-0.5 h-2.5 bg-indigo-400 -ml-[1px]"></div>
-            <div class="absolute top-2.5 left-1/2 w-0.5 h-2.5 bg-indigo-400 -ml-[1px]"></div>
-            <div class="absolute top-2.5 right-[16.666%] w-0.5 h-2.5 bg-indigo-400 -mr-[1px]"></div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-3 gap-3 items-start">
-          <div class="bg-indigo-50 border-t-2 border-indigo-400 rounded p-2 text-center h-full">
-            <div class="font-serif font-bold text-lg text-indigo-900">الْمُفْرَدُ</div>
-            <div class="text-[9px] text-indigo-700 mb-1">Единственное (1)</div>
-            <div class="bg-white text-[11px] font-serif p-1 rounded mt-2">طَالِبٌ</div>
-          </div>
-          <div class="bg-indigo-50 border-t-2 border-indigo-500 rounded p-2 text-center h-full">
-            <div class="font-serif font-bold text-lg text-indigo-900">الْمُثَنَّى</div>
-            <div class="text-[9px] text-indigo-700 mb-1">Двойственное (2)</div>
-            <div class="bg-white text-[11px] font-serif p-1 rounded mb-1 mt-2">طَالِبَانِ <span class="text-red-500 text-[9px]">(رَفْع)</span></div>
-            <div class="bg-white text-[11px] font-serif p-1 rounded">طَالِبَيْنِ <span class="text-red-500 text-[9px]">(نَصْب/جَرّ)</span></div>
-          </div>
-          <div class="bg-indigo-50 border-t-2 border-indigo-600 rounded p-2 flex flex-col items-center h-full">
-
-
-<div class="font-serif font-bold text-lg text-indigo-900">الْجَمْعُ</div>
-             <div class="text-[9px] text-indigo-700 mb-1">Множественное (3+)</div>
-             <div class="w-full space-y-1 text-left mt-2">
-               <div class="bg-white p-1 rounded border border-indigo-100">
-                 <span class="text-[8px] font-bold text-blue-600 block">Правильное мужское (السَّالِمُ)</span>
-                 <span class="font-serif text-[11px]">مُسْلِمُونَ / مُسْلِمِينَ</span>
-               </div>
-               <div class="bg-white p-1 rounded border border-indigo-100">
-                 <span class="text-[8px] font-bold text-pink-600 block">Правильное женское (السَّالِمُ)</span>
-                 <span class="font-serif text-[11px]">سَيَّارَاتٌ</span>
-               </div>
-               <div class="bg-white p-1 rounded border border-indigo-100">
-                 <span class="text-[8px] font-bold text-orange-600 block">Ломаное (التَّكْسِيرُ)</span>
-                 <span class="font-serif text-[11px]">كُتُبٌ (كِتَابٌ)</span>
-               </div>
-             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ЗВЕНО ЦЕПИ -->
-      <div class="w-0.5 h-8 bg-emerald-400 mx-auto"></div>
-
-      <!-- ==================== БЛОК 4: ОПРЕДЕЛЕННОСТЬ ==================== -->
-      <div class="w-full max-w-4xl bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-xl border border-amber-200 min-w-[750px]">
-        
-        <div class="flex flex-col items-center relative z-10 mb-4">
-          <div class="inline-block bg-amber-50 px-5 py-1.5 rounded-xl border border-amber-200 shadow-sm z-10 text-center">
-            <h2 class="text-xl font-bold font-serif text-amber-800">النَّكِرَةُ وَالمَعْرِفَةُ</h2>
-            <p class="text-[9px] font-normal uppercase text-amber-600 tracking-widest">(ОПРЕДЕЛЕННОСТЬ И НЕОПРЕДЕЛЕННОСТЬ)</p>
-          </div>
-
-          <div class="relative w-full h-5 z-0">
-            <div class="absolute top-0 left-1/2 w-0.5 h-2.5 bg-amber-400 -ml-[1px]"></div>
-            <div class="absolute top-2.5 left-[calc(25%-4px)] right-[calc(25%-4px)] h-0.5 bg-amber-400"></div>
-            <div class="absolute top-2.5 left-[calc(25%-4px)] w-0.5 h-2.5 bg-amber-400"></div>
-            <div class="absolute top-2.5 right-[calc(25%-4px)] w-0.5 h-2.5 bg-amber-400"></div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4 items-start">
-          <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 h-full flex flex-col">
-            <h3 class="font-bold font-serif text-gray-800 text-center mb-1">النَّكِرَةُ <span class="text-[10px] font-sans">(Неопределенное)</span></h3>
-            <p class="text-[9px] text-center text-gray-600 mb-3">Указывает на что-то общее, неизвестное.</p>
-            <div class="bg-white text-center font-serif p-1.5 rounded shadow-sm text-sm mt-auto">قَلَمٌ <span class="text-[10px] font-sans text-gray-500">(Какая-то ручка)</span></div>
-          </div>
-          <div class="bg-amber-50 p-3 rounded-lg border border-amber-200 h-full flex flex-col">
-            <h3 class="font-bold font-serif text-amber-900 text-center mb-1">المَعْرِفَةُ <span class="text-[10px] font-sans">(Определенное)</span></h3>
-            <p class="text-[9px] text-center text-amber-700 mb-3">Указывает на конкретное. 6 видов:</p>
-            <div class="grid grid-cols-2 gap-1 text-[9px] mt-auto">
-              <div class="bg-white p-1 rounded text-center">1. С артиклем (القَلَمُ)</div>
-              <div class="bg-white p-1 rounded text-center">2. Местоимения (هُوَ)</div>
-              <div class="bg-white p-1 rounded text-center">3. Имена собств. (مَكَّةُ)</div>
-              <div class="bg-white p-1 rounded text-center">4. Указательные (هَذَا)</div>
-              <div class="bg-white p-1 rounded text-center">5. Относительные (الَّذِي)</div>
-              <div class="bg-white p-1 rounded text-center">6. Идафа (كِتَابُكَ)</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ЗВЕНО ЦЕПИ -->
-      <div class="w-0.5 h-8 bg-emerald-400 mx-auto"></div>
-
-
-<!-- ==================== БЛОК 5: МЕСТОИМЕНИЯ ==================== -->
-      <div class="w-full max-w-4xl bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-xl border border-purple-200 min-w-[750px]">
-        
-        <div class="flex flex-col items-center relative z-10 mb-4">
-          <div class="inline-block bg-purple-50 px-5 py-1.5 rounded-xl border border-purple-200 shadow-sm z-10 text-center">
-            <h2 class="text-xl font-bold font-serif text-purple-800">الضَّمَائِرُ</h2>
-            <p class="text-[9px] font-normal uppercase text-purple-600 tracking-widest">(МЕСТОИМЕНИЯ)</p>
-          </div>
-          
-          <div class="relative w-full h-5 z-0">
-            <div class="absolute top-0 left-1/2 w-0.5 h-2.5 bg-purple-400 -ml-[1px]"></div>
-            <div class="absolute top-2.5 left-[calc(25%-4px)] right-[calc(25%-4px)] h-0.5 bg-purple-400"></div>
-            <div class="absolute top-2.5 left-[calc(25%-4px)] w-0.5 h-2.5 bg-purple-400"></div>
-            <div class="absolute top-2.5 right-[calc(25%-4px)] w-0.5 h-2.5 bg-purple-400"></div>
-          </div>
-        </div>
-        
-        <div class="flex gap-4 mb-4">
-          <div class="flex-1 bg-purple-50 p-2 rounded-lg text-center border border-purple-200">
-            <h3 class="font-bold font-serif text-purple-900">الْمُنْفَصِلَةُ</h3>
-            <p class="text-[10px] text-purple-700">Раздельные (أَنَا, هُوَ)</p>
-          </div>
-          <div class="flex-1 bg-fuchsia-50 p-2 rounded-lg text-center border border-fuchsia-200">
-            <h3 class="font-bold font-serif text-fuchsia-900">الْمُتَّصِلَةُ</h3>
-            <p class="text-[10px] text-fuchsia-700">Слитные (كِتَابِي, فِيهِ)</p>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-3 gap-3">
-          
-          <!-- 3 Лицо -->
-          <div class="bg-gray-50 border border-gray-200 rounded p-2">
-            <div class="text-[10px] font-bold text-gray-500 mb-2 text-center border-b pb-1">3 лицо (Он/Она)</div>
-            <div class="space-y-1">
-              <div class="flex justify-between items-center bg-white p-1 rounded shadow-sm text-[11px]"><span class="w-10 text-gray-400 text-[9px]">Он/Его</span><span class="font-serif text-purple-800 font-bold">هُوَ</span><span class="text-gray-300">|</span><span class="font-serif text-fuchsia-800 font-bold">ــهُ / ــهِ</span></div>
-              <div class="flex justify-between items-center bg-white p-1 rounded shadow-sm text-[11px]"><span class="w-10 text-gray-400 text-[9px]">Она/Ее</span><span class="font-serif text-purple-800 font-bold">هِيَ</span><span class="text-gray-300">|</span><span class="font-serif text-fuchsia-800 font-bold">ــهَا</span></div>
-              <div class="flex justify-between items-center bg-white p-1 rounded shadow-sm text-[11px]"><span class="w-10 text-gray-400 text-[9px]">Они двое</span><span class="font-serif text-purple-800 font-bold">هُمَا</span><span class="text-gray-300">|</span><span class="font-serif text-fuchsia-800 font-bold">ــهُمَا</span></div>
-              <div class="flex justify-between items-center bg-white p-1 rounded shadow-sm text-[11px]"><span class="w-10 text-gray-400 text-[9px]">Они (м)</span><span class="font-serif text-purple-800 font-bold">هُمْ</span><span class="text-gray-300">|</span><span class="font-serif text-fuchsia-800 font-bold">ــهُمْ</span></div>
-              <div class="flex justify-between items-center bg-white p-1 rounded shadow-sm text-[11px]"><span class="w-10 text-gray-400 text-[9px]">Они (ж)</span><span class="font-serif text-purple-800 font-bold">هُنَّ</span><span class="text-gray-300">|</span><span class="font-serif text-fuchsia-800 font-bold">ــهُنَّ</span></div>
-            </div>
-          </div>
-
-          <!-- 2 Лицо -->
-          <div class="bg-gray-50 border border-gray-200 rounded p-2">
-
-
-<div class="text-[10px] font-bold text-gray-500 mb-2 text-center border-b pb-1">2 лицо (Ты/Вы)</div>
-            <div class="space-y-1">
-              <div class="flex justify-between items-center bg-white p-1 rounded shadow-sm text-[11px]"><span class="w-10 text-gray-400 text-[9px]">Ты (м)</span><span class="font-serif text-purple-800 font-bold">أَنْتَ</span><span class="text-gray-300">|</span><span class="font-serif text-fuchsia-800 font-bold">ــكَ</span></div>
-              <div class="flex justify-between items-center bg-white p-1 rounded shadow-sm text-[11px]"><span class="w-10 text-gray-400 text-[9px]">Ты (ж)</span><span class="font-serif text-purple-800 font-bold">أَنْتِ</span><span class="text-gray-300">|</span><span class="font-serif text-fuchsia-800 font-bold">ــكِ</span></div>
-              <div class="flex justify-between items-center bg-white p-1 rounded shadow-sm text-[11px]"><span class="w-10 text-gray-400 text-[9px]">Вы двое</span><span class="font-serif text-purple-800 font-bold">أَنْتُمَا</span><span class="text-gray-300">|</span><span class="font-serif text-fuchsia-800 font-bold">ــكُمَا</span></div>
-              <div class="flex justify-between items-center bg-white p-1 rounded shadow-sm text-[11px]"><span class="w-10 text-gray-400 text-[9px]">Вы (м)</span><span class="font-serif text-purple-800 font-bold">أَنْتُمْ</span><span class="text-gray-300">|</span><span class="font-serif text-fuchsia-800 font-bold">ــكُمْ</span></div>
-              <div class="flex justify-between items-center bg-white p-1 rounded shadow-sm text-[11px]"><span class="w-10 text-gray-400 text-[9px]">Вы (ж)</span><span class="font-serif text-purple-800 font-bold">أَنْتُنَّ</span><span class="text-gray-300">|</span><span class="font-serif text-fuchsia-800 font-bold">ــكُنَّ</span></div>
-            </div>
-          </div>
-
-          <!-- 1 Лицо -->
-          <div class="bg-gray-50 border border-gray-200 rounded p-2">
-            <div class="text-[10px] font-bold text-gray-500 mb-2 text-center border-b pb-1">1 лицо (Я/Мы)</div>
-            <div class="space-y-1">
-              <div class="flex justify-between items-center bg-white p-1 rounded shadow-sm text-[11px]"><span class="w-10 text-gray-400 text-[9px]">Я/Мой</span><span class="font-serif text-purple-800 font-bold">أَنَا</span><span class="text-gray-300">|</span><span class="font-serif text-fuchsia-800 font-bold">ــي / ــنِي</span></div>
-              <div class="flex justify-between items-center bg-white p-1 rounded shadow-sm text-[11px]"><span class="w-10 text-gray-400 text-[9px]">Мы/Наш</span><span class="font-serif text-purple-800 font-bold">نَحْنُ</span><span class="text-gray-300">|</span><span class="font-serif text-fuchsia-800 font-bold">ــنَا</span></div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- ЗВЕНО ЦЕПИ -->
-      <div class="w-0.5 h-8 bg-emerald-400 mx-auto"></div>
-
-      <!-- ==================== БЛОК 6: ПРЕДЛОЖЕНИЯ ==================== -->
-      <div class="w-full max-w-4xl bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-xl border border-teal-200 min-w-[750px]">
-        
-        <div class="flex flex-col items-center relative z-10 mb-4">
-          <div class="inline-block bg-teal-50 px-5 py-1.5 rounded-xl border border-teal-200 shadow-sm z-10 text-center">
-            <h2 class="text-xl font-bold font-serif text-teal-800">أَقْسَامُ الْجُمْلَةِ</h2>
-            <p class="text-[9px] font-normal uppercase text-teal-600 tracking-widest">(ВИДЫ ПРЕДЛОЖЕНИЙ)</p>
-          </div>
-
-          <div class="relative w-full h-5 z-0">
-            <div class="absolute top-0 left-1/2 w-0.5 h-2.5 bg-teal-400 -ml-[1px]"></div>
-            <div class="absolute top-2.5 left-[calc(25%-4px)] right-[calc(25%-4px)] h-0.5 bg-teal-400"></div>
-            <div class="absolute top-2.5 left-[calc(25%-4px)] w-0.5 h-2.5 bg-teal-400"></div>
-
-
-<div class="absolute top-2.5 right-[calc(25%-4px)] w-0.5 h-2.5 bg-teal-400"></div>
-          </div>
-        </div>
-        
-        <div class="grid grid-cols-2 gap-4 items-start">
-          <div class="bg-teal-50 p-3 rounded-lg border border-teal-200 h-full flex flex-col">
-            <h3 class="font-bold font-serif text-teal-900 text-center mb-1">الْجُمْلَةُ الِاسْمِيَّةُ</h3>
-            <p class="text-[10px] text-center text-teal-700 mb-3">Именное предложение (начинается с Имени). Состоит из двух главных частей:</p>
-            <div class="flex gap-2 mt-auto">
-              <div class="bg-white p-2 rounded flex-1 text-center border border-teal-100">
-                <span class="font-serif font-bold text-teal-800">الْمُبْتَدَأُ</span><br/>
-                <span class="text-[9px] text-gray-500">Подлежащее (О чем речь)</span>
-              </div>
-              <div class="bg-white p-2 rounded flex-1 text-center border border-teal-100">
-                <span class="font-serif font-bold text-teal-800">الْخَبَرُ</span><br/>
-                <span class="text-[9px] text-gray-500">Сказуемое (Новость)</span>
-              </div>
-            </div>
-            <div class="text-[9px] text-center text-red-500 mt-2 font-bold">Оба всегда в падеже الرَّفْع!</div>
-          </div>
-
-          <div class="bg-cyan-50 p-3 rounded-lg border border-cyan-200 h-full flex flex-col">
-            <h3 class="font-bold font-serif text-cyan-900 text-center mb-1">الْجُمْلَةُ الْفِعْلِيَّةُ</h3>
-            <p class="text-[10px] text-center text-cyan-700 mb-3">Глагольное предложение (начинается с Глагола).</p>
-            <div class="bg-white p-3 rounded text-center border border-cyan-100 font-serif text-lg mt-auto">
-              <span class="text-cyan-800">ذَهَبَ</span> مُحَمَّدٌ
-              <div class="text-[9px] font-sans text-gray-500 mt-1">Ушел Мухаммад</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ЗВЕНО ЦЕПИ -->
-      <div class="w-0.5 h-8 bg-emerald-400 mx-auto"></div>
-
-      <!-- ==================== БЛОК 7: ГЛАГОЛЫ ==================== -->
-      <div class="w-full max-w-4xl bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-xl border border-orange-200 min-w-[750px]">
-        
-        <div class="flex flex-col items-center relative z-10 mb-4">
-          <div class="inline-block bg-orange-50 px-5 py-1.5 rounded-xl border border-orange-200 shadow-sm z-10 text-center">
-            <h2 class="text-xl font-bold font-serif text-orange-800">الْأَفْعَالُ</h2>
-            <p class="text-[9px] font-normal uppercase text-orange-600 tracking-widest">(СПРЯЖЕНИЕ ГЛАГОЛОВ)</p>
-          </div>
-          <!-- Линия вниз -->
-          <div class="w-0.5 h-5 bg-orange-400"></div>
-        </div>
-
-        <div class="overflow-hidden rounded-lg border border-orange-200">
-          <table class="w-full text-center text-sm">
-            <thead class="bg-orange-100 text-orange-900 font-bold text-[10px] uppercase">
-              <tr>
-                <th class="p-2 border-b border-r border-orange-200">Лицо / Местоимение</th>
-                <th class="p-2 border-b border-r border-orange-200">الْمَاضِي (Прошедшее)</th>
-                <th class="p-2 border-b border-r border-orange-200">الْمُضَارِعُ (Наст./Буд.)</th>
-                <th class="p-2 border-b border-orange-200">الْأَمْرُ (Приказ)</th>
-              </tr>
-            </thead>
-            <tbody class="bg-white">
-              <tr class="border-b border-orange-50 hover:bg-orange-50/50">
-                <td class="p-1.5 border-r border-orange-100 text-[10px] font-bold text-gray-600">أَنَا (Я)</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-orange-800">ذَهَبْتُ</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-blue-800">أَذْهَبُ</td>
-
-
-<td class="p-1.5 font-serif text-base text-red-800">-</td>
-              </tr>
-              <tr class="border-b border-orange-50 hover:bg-orange-50/50">
-                <td class="p-1.5 border-r border-orange-100 text-[10px] font-bold text-gray-600">نَحْنُ (Мы)</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-orange-800">ذَهَبْنَا</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-blue-800">نَذْهَبُ</td>
-                <td class="p-1.5 font-serif text-base text-red-800">-</td>
-              </tr>
-              <tr class="border-b border-orange-50 hover:bg-orange-50/50">
-                <td class="p-1.5 border-r border-orange-100 text-[10px] font-bold text-gray-600">أَنْتَ (Ты м)</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-orange-800">ذَهَبْتَ</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-blue-800">تَذْهَبُ</td>
-                <td class="p-1.5 font-serif text-base text-red-800">اِذْهَبْ</td>
-              </tr>
-              <tr class="border-b border-orange-50 hover:bg-orange-50/50">
-                <td class="p-1.5 border-r border-orange-100 text-[10px] font-bold text-gray-600">أَنْتِ (Ты ж)</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-orange-800">ذَهَبْتِ</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-blue-800">تَذْهَبِينَ</td>
-                <td class="p-1.5 font-serif text-base text-red-800">اِذْهَبِي</td>
-              </tr>
-              <tr class="border-b border-orange-50 hover:bg-orange-50/50">
-                <td class="p-1.5 border-r border-orange-100 text-[10px] font-bold text-gray-600">أَنْتُمَا (Вы 2)</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-orange-800">ذَهَبْتُمَا</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-blue-800">تَذْهَبَانِ</td>
-                <td class="p-1.5 font-serif text-base text-red-800">اِذْهَبَا</td>
-              </tr>
-              <tr class="border-b border-orange-50 hover:bg-orange-50/50">
-                <td class="p-1.5 border-r border-orange-100 text-[10px] font-bold text-gray-600">أَنْتُمْ (Вы мн. м)</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-orange-800">ذَهَبْتُمْ</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-blue-800">تَذْهَبُونَ</td>
-                <td class="p-1.5 font-serif text-base text-red-800">اِذْهَبُوا</td>
-              </tr>
-              <tr class="border-b border-orange-50 hover:bg-orange-50/50">
-                <td class="p-1.5 border-r border-orange-100 text-[10px] font-bold text-gray-600">أَنْتُنَّ (Вы мн. ж)</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-orange-800">ذَهَبْتُنَّ</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-blue-800">تَذْهَبْنَ</td>
-                <td class="p-1.5 font-serif text-base text-red-800">-</td>
-              </tr>
-              <tr class="border-b border-orange-50 hover:bg-orange-50/50">
-                <td class="p-1.5 border-r border-orange-100 text-[10px] font-bold text-gray-600">هُوَ (Он)</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-orange-800">ذَهَبَ</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-blue-800">يَذْهَبُ</td>
-                <td class="p-1.5 font-serif text-base text-red-800">-</td>
-              </tr>
-              <tr class="border-b border-orange-50 hover:bg-orange-50/50">
-                <td class="p-1.5 border-r border-orange-100 text-[10px] font-bold text-gray-600">هِيَ (Она)</td>
-
-
-<td class="p-1.5 border-r border-orange-100 font-serif text-base text-orange-800">ذَهَبَتْ</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-blue-800">تَذْهَبُ</td>
-                <td class="p-1.5 font-serif text-base text-red-800">-</td>
-              </tr>
-              <tr class="border-b border-orange-50 hover:bg-orange-50/50">
-                <td class="p-1.5 border-r border-orange-100 text-[10px] font-bold text-gray-600">هُمَا (Они 2)</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-orange-800">ذَهَبَا</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-blue-800">يَذْهَبَانِ</td>
-                <td class="p-1.5 font-serif text-base text-red-800">-</td>
-              </tr>
-              <tr class="border-b border-orange-50 hover:bg-orange-50/50">
-                <td class="p-1.5 border-r border-orange-100 text-[10px] font-bold text-gray-600">هُمْ (Они мн. м)</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-orange-800">ذَهَبُوا</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-blue-800">يَذْهَبُونَ</td>
-                <td class="p-1.5 font-serif text-base text-red-800">-</td>
-              </tr>
-              <tr class="border-b border-orange-50 hover:bg-orange-50/50">
-                <td class="p-1.5 border-r border-orange-100 text-[10px] font-bold text-gray-600">هُنَّ (Они мн. ж)</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-orange-800">ذَهَبْنَ</td>
-                <td class="p-1.5 border-r border-orange-100 font-serif text-base text-blue-800">يَذْهَبْنَ</td>
-                <td class="p-1.5 font-serif text-base text-red-800">-</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- === СКРИПТЫ (Логика масштаба и перетаскивания) === -->
-  <script>
-    const panel = document.getElementById('zoom-panel');
-    const zoomContainer = document.getElementById('zoom-container');
-    const scaleDisplay = document.getElementById('scale-display');
-    
-    let scale = 1.0;
-    let isDragging = false;
-    let startX = 0, startY = 0;
-    let initialLeft = 0, initialTop = 0;
-
-    // Обновление масштаба
-    function updateZoom() {
-      zoomContainer.style.transform = scale({scale});
-      scaleDisplay.textContent = Math.round(scale * 100) + '%';
-    }
-
-    // Обработчики для кнопок масштаба (работают по клику)
-    document.getElementById('btn-zoom-in').addEventListener('click', (e) => {
-      e.stopPropagation();
-      scale = Math.min(scale + 0.1, 1.5);
-      updateZoom();
-    });
-
-    document.getElementById('btn-zoom-out').addEventListener('click', (e) => {
-      e.stopPropagation();
-      scale = Math.max(scale - 0.1, 0.5);
-      updateZoom();
-    });
-
-    document.getElementById('btn-zoom-reset').addEventListener('click', (e) => {
-      e.stopPropagation();
-      scale = 1.0;
-      updateZoom();
-    });
-
-    // Логика перетаскивания панели (работает только если потянуть за всю панель или иконку с точками)
-    panel.addEventListener('pointerdown', (e) => {
-      // Если кликнули по кнопке, не запускаем перетаскивание
-      if(e.target.closest('button')) return;
-      
-      e.preventDefault(); // Предотвращаем стандартное поведение браузера
-      isDragging = true;
-      
-      const rect = panel.getBoundingClientRect();
-      startX = e.clientX;
-      startY = e.clientY;
-      initialLeft = rect.left;
-      initialTop = rect.top;
-      
-      panel.classList.add('dragging', 'opacity-100', 'shadow-xl', 'scale-105');
-      panel.classList.remove('opacity-85');
-      
-      // Переключаем позиционирование для предсказуемого движения
-      panel.style.right = 'auto';
-      panel.style.left = initialLeft + 'px';
-      panel.style.top = initialTop + 'px';
-      
-      document.body.style.userSelect = 'none';
-      try { panel.setPointerCapture(e.pointerId); } catch(err) {}
-    });
-
-
-window.addEventListener('pointermove', (e) => {
-      if (!isDragging) return;
-      
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      
-      panel.style.left = (initialLeft + dx) + 'px';
-      panel.style.top = (initialTop + dy) + 'px';
-    });
-
-    const handlePointerUp = (e) => {
-      if (!isDragging) return;
-      isDragging = false;
-      
-      document.body.style.userSelect = '';
-      panel.classList.remove('dragging', 'opacity-100', 'shadow-xl', 'scale-105');
-      panel.classList.add('opacity-85');
-      
-      try { panel.releasePointerCapture(e.pointerId); } catch(err) {}
-
-      // Прилипание к краям
-      const rect = panel.getBoundingClientRect();
-      const screenWidth = window.innerWidth;
-      const isLeft = (rect.left + rect.width / 2) < (screenWidth / 2);
-
-      if (isLeft) {
-        panel.style.left = '16px';
-      } else {
-        // Двигаем к правому краю, задаем через left для плавной анимации
-        panel.style.left = (screenWidth - rect.width - 16) + 'px';
-        // После завершения анимации переключаем обратно на right
-        setTimeout(() => {
-          if (!isDragging) {
-            panel.style.left = 'auto';
-            panel.style.right = '16px';
+<body class="bg-emerald-50 font-sans text-gray-800 m-0 p-0 overflow-hidden h-[100dvh]">
+
+  <div id="root" class="w-full h-full"></div>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    // ============================================================
+    // СТАТИЧЕСКИЕ ДАННЫЕ — вынесены за пределы компонента,
+    // чтобы не пересоздаваться при каждом ререндере (оптимизация)
+    // ============================================================
+    const VERBS = [
+      { face: 'أَنَا (Я)',           madi: 'ذَهَبْتُ',    mudari: 'أَذْهَبُ',     amr: '-' },
+      { face: 'نَحْنُ (Мы)',          madi: 'ذَهَبْنَا',   mudari: 'نَذْهَبُ',     amr: '-' },
+      { face: 'أَنْتَ (Ты м)',        madi: 'ذَهَبْتَ',    mudari: 'تَذْهَبُ',     amr: 'اِذْهَبْ' },
+      { face: 'أَنْتِ (Ты ж)',        madi: 'ذَهَبْتِ',    mudari: 'تَذْهَبِينَ',  amr: 'اِذْهَبِي' },
+      { face: 'أَنْتُمَا (Вы 2)',     madi: 'ذَهَبْتُمَا', mudari: 'تَذْهَبَانِ',  amr: 'اِذْهَبَا' },
+      { face: 'أَنْتُمْ (Вы мн. м)',  madi: 'ذَهَبْتُمْ',  mudari: 'تَذْهَبُونَ',  amr: 'اِذْهَبُوا' },
+      { face: 'أَنْتُنَّ (Вы мн. ж)', madi: 'ذَهَبْتُنَّ', mudari: 'تَذْهَبْنَ',   amr: '-' },
+      { face: 'هُوَ (Он)',            madi: 'ذَهَبَ',      mudari: 'يَذْهَبُ',     amr: '-' },
+      { face: 'هِيَ (Она)',           madi: 'ذَهَبَتْ',    mudari: 'تَذْهَبُ',     amr: '-' },
+      { face: 'هُمَا (Они 2)',        madi: 'ذَهَبَا',     mudari: 'يَذْهَبَانِ',  amr: '-' },
+      { face: 'هُمْ (Они мн. м)',     madi: 'ذَهَبُوا',    mudari: 'يَذْهَبُونَ',  amr: '-' },
+      { face: 'هُنَّ (Они мн. ж)',    madi: 'ذَهَبْنَ',    mudari: 'يَذْهَبْنَ',   amr: '-' },
+    ];
+
+    const PRONOUNS = [
+      { face: '3 лицо (Он/Она)', items: [
+        { m: 'هُوَ',    s: 'ــهُ / ــهِ', ru: 'Он/Его'   },
+        { m: 'هِيَ',    s: 'ــهَا',        ru: 'Она/Ее'   },
+        { m: 'هُمَا',   s: 'ــهُمَا',      ru: 'Они двое' },
+        { m: 'هُمْ',    s: 'ــهُمْ',       ru: 'Они (м)'  },
+        { m: 'هُنَّ',   s: 'ــهُنَّ',      ru: 'Они (ж)'  },
+      ]},
+      { face: '2 лицо (Ты/Вы)', items: [
+        { m: 'أَنْتَ',  s: 'ــكَ',         ru: 'Ты (м)'   },
+        { m: 'أَنْتِ',  s: 'ــكِ',         ru: 'Ты (ж)'   },
+        { m: 'أَنْتُمَا', s: 'ــكُمَا',    ru: 'Вы двое'  },
+        { m: 'أَنْتُمْ', s: 'ــكُمْ',      ru: 'Вы (м)'   },
+        { m: 'أَنْتُنَّ', s: 'ــكُنَّ',    ru: 'Вы (ж)'   },
+      ]},
+      { face: '1 лицо (Я/Мы)', items: [
+        { m: 'أَنَا',   s: 'ــي / ــنِي',  ru: 'Я/Мой'    },
+        { m: 'نَحْنُ',  s: 'ــنَا',        ru: 'Мы/Наш'   },
+      ]},
+    ];
+
+    // === КОМПОНЕНТ ДЛЯ ПЕРЕТАСКИВАЕМОЙ ПАНЕЛИ МАСШТАБА ===
+    const ZoomPanel = ({ scale, zoomIn, zoomOut, resetZoom }) => {
+      const [position, setPosition] = useState({ top: 16, right: 16, left: 'auto' });
+      const [isDragging, setIsDragging] = useState(false);
+      const dragRef = useRef(null);
+      const dragInfo = useRef({ startX: 0, startY: 0, rectLeft: 0, rectTop: 0 });
+      const hasMoved = useRef(false);
+
+      const handlePointerDown = (e) => {
+        e.stopPropagation();
+        setIsDragging(true);
+        hasMoved.current = false;
+        const rect = dragRef.current.getBoundingClientRect();
+        dragInfo.current = { startX: e.clientX, startY: e.clientY, rectLeft: rect.left, rectTop: rect.top };
+        setPosition({ top: rect.top, left: rect.left, right: 'auto' });
+      };
+
+      useEffect(() => {
+        const handlePointerMove = (e) => {
+          if (!isDragging) return;
+          const dx = e.clientX - dragInfo.current.startX;
+          const dy = e.clientY - dragInfo.current.startY;
+          if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved.current = true;
+          setPosition({ top: dragInfo.current.rectTop + dy, left: dragInfo.current.rectLeft + dx, right: 'auto' });
+        };
+
+        const handlePointerUp = () => {
+          if (!isDragging) return;
+          setIsDragging(false);
+          if (dragRef.current) {
+            const rect = dragRef.current.getBoundingClientRect();
+            const isLeft = rect.left + rect.width / 2 < window.innerWidth / 2;
+            setPosition({ top: rect.top, ...(isLeft ? { left: 16, right: 'auto' } : { right: 16, left: 'auto' }) });
           }
-        }, 300);
-      }
+        };
+
+        if (isDragging) {
+          window.addEventListener('pointermove', handlePointerMove);
+          window.addEventListener('pointerup', handlePointerUp);
+          window.addEventListener('pointercancel', handlePointerUp);
+          document.body.style.userSelect = 'none';
+        }
+        return () => {
+          window.removeEventListener('pointermove', handlePointerMove);
+          window.removeEventListener('pointerup', handlePointerUp);
+          window.removeEventListener('pointercancel', handlePointerUp);
+          document.body.style.userSelect = '';
+        };
+      }, [isDragging]);
+
+      return (
+        <div
+          ref={dragRef}
+          onPointerDown={handlePointerDown}
+          style={{
+            position: 'fixed', top: position.top, left: position.left, right: position.right,
+            transition: isDragging ? 'none' : 'left 0.3s ease, right 0.3s ease, top 0.3s ease', zIndex: 50,
+          }}
+          className={`cursor-grab active:cursor-grabbing touch-none bg-white/95 backdrop-blur shadow-md rounded-xl border border-emerald-200 p-1 flex items-center gap-1 ${isDragging ? 'opacity-100 shadow-xl scale-105' : 'opacity-90 hover:opacity-100'} transition-all`}
+          title="Удерживайте, чтобы переместить"
+        >
+          <button onClick={(e) => { e.stopPropagation(); if (!hasMoved.current) zoomOut(); }} className="p-2 hover:bg-emerald-100 rounded-lg text-emerald-700 cursor-pointer touch-manipulation" title="Уменьшить">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <span className="flex items-center justify-center min-w-[3.5rem] font-bold text-emerald-800 text-sm select-none">
+            {Math.round(scale * 100)}%
+          </span>
+          <button onClick={(e) => { e.stopPropagation(); if (!hasMoved.current) zoomIn(); }} className="p-2 hover:bg-emerald-100 rounded-lg text-emerald-700 cursor-pointer touch-manipulation" title="Увеличить">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <div className="w-px bg-emerald-200 mx-1 h-6"></div>
+          <button onClick={(e) => { e.stopPropagation(); if (!hasMoved.current) resetZoom(); }} className="p-2 hover:bg-emerald-100 rounded-lg text-emerald-700 cursor-pointer touch-manipulation" title="Сбросить">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          </button>
+        </div>
+      );
     };
 
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handlePointerUp);
+    // === ЗВЕНО ЦЕПИ (единый центральный ствол) ===
+    const ChainLink = () => (
+      <div className="w-0.5 h-12 bg-emerald-400 z-0"></div>
+    );
 
+    // === ГЛАВНЫЙ КОМПОНЕНТ ===
+    const ArabicGrammarApp = () => {
+      const [scale, setScale] = useState(1);
+
+      return (
+        <div className="relative h-screen bg-emerald-50 font-sans selection:bg-emerald-200 overflow-hidden flex flex-col">
+
+          <ZoomPanel
+            scale={scale}
+            zoomIn={() => setScale(p => Math.min(p + 0.1, 1.5))}
+            zoomOut={() => setScale(p => Math.max(p - 0.1, 0.4))}
+            resetZoom={() => setScale(1)}
+          />
+
+          <div className="flex-1 overflow-auto p-4 md:p-8 w-full relative">
+            <div
+              style={{ transform: `scale(${scale})`, transformOrigin: 'top center', width: 'fit-content', margin: '0 auto' }}
+              className="transition-transform duration-200 ease-out pb-32"
+            >
+
+              {/* ЕДИНЫЙ ХОЛСТ */}
+              <div className="w-full max-w-[900px] mx-auto bg-white rounded-[2.5rem] p-8 md:p-12 shadow-2xl border border-emerald-100 min-w-[800px] flex flex-col items-center gap-0">
+
+                {/* ЗАГОЛОВОК */}
+                <div className="inline-block bg-emerald-100/50 px-8 py-2 rounded-xl border border-emerald-200 shadow-sm z-10">
+                  <h1 className="text-2xl font-bold text-emerald-900 uppercase tracking-wide">Арабская Грамматика</h1>
+                </div>
+
+                <div className="w-0.5 h-6 bg-emerald-400 z-0"></div>
+
+                {/* РАЗДЕЛЕНИЕ НА НАХЬВУ И САРФ */}
+                <div className="w-[280px] h-4 border-t-2 border-x-2 border-emerald-400 rounded-t-md z-0"></div>
+                <div className="flex justify-center gap-6 relative w-full">
+                  <div className="flex flex-col items-center w-64 z-10">
+                    <div className="bg-white border border-emerald-300 rounded-lg p-3 shadow-sm w-full">
+                      <div className="text-3xl font-serif text-emerald-800 mb-1 text-center">النَّحْوُ</div>
+                      <div className="text-xs text-gray-700 leading-tight text-center border-t border-emerald-100 pt-2">Наука, изучающая <span className="text-emerald-700 font-bold">окончание слов</span></div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-center w-64 z-10">
+                    <div className="bg-white border border-emerald-300 rounded-lg p-3 shadow-sm w-full">
+                      <div className="text-3xl font-serif text-emerald-800 mb-1 text-center">الصَّرْفُ</div>
+                      <div className="text-xs text-gray-700 leading-tight text-center border-t border-emerald-100 pt-2">Наука, изучающая <span className="text-emerald-700 font-bold">основу слов</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-center w-full relative z-0">
+                  <svg width="284" height="24" viewBox="0 0 284 24" className="overflow-visible">
+                    <path d="M 2,0 Q 2,12 17,12 L 127,12 Q 142,12 142,24 Q 142,12 157,12 L 267,12 Q 282,12 282,0" fill="none" stroke="#34d399" strokeWidth="2" />
+                  </svg>
+                </div>
+
+                <div className="flex flex-col items-center z-10 bg-white/80 px-4 py-1 rounded-full">
+                  <span className="text-xl font-bold font-serif text-emerald-900">أَقْسَامُ الْكَلِمَةِ</span>
+                  <span className="text-sm font-normal text-emerald-700">Виды слов</span>
+                </div>
+
+                <div className="w-0.5 h-6 bg-emerald-400 z-0"></div>
+
+                {/* СЛОВО */}
+                <div className="w-56 bg-emerald-600 text-white rounded-lg p-3 text-center shadow-md ring-4 ring-emerald-100 z-10">
+                  <div className="text-2xl font-bold font-serif mb-1">الْكَلِمَةُ</div>
+                  <div className="text-base font-semibold uppercase">Слово</div>
+                </div>
+
+                {/* ВЕТКИ (3 КОЛОНКИ) */}
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
+                  <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-emerald-400"></div>
+                  <div className="absolute top-4 left-[calc(16.666%-8px)] w-0.5 h-4 bg-emerald-400"></div>
+                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
+                  <div className="absolute top-4 right-[calc(16.666%-8px)] w-0.5 h-4 bg-emerald-400"></div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-6 w-full z-10">
+                  <div className="w-full bg-blue-50 border-t-2 border-blue-500 rounded-lg p-3 shadow-sm h-full flex flex-col">
+                    <div className="text-center mb-2"><span className="text-2xl text-blue-800 font-serif font-bold block">الِاسْمُ</span><span className="text-[10px] font-bold text-gray-500 uppercase">Имя</span></div>
+                    <div className="text-[11px] text-gray-700 bg-white p-2 rounded border border-blue-100 leading-tight flex-1">Имеет <strong>самостоятельный смысл</strong>, <strong>не связан</strong> со временем.</div>
+                  </div>
+                  <div className="w-full bg-amber-50 border-t-2 border-amber-500 rounded-lg p-3 shadow-sm h-full flex flex-col">
+                    <div className="text-center mb-2"><span className="text-2xl text-amber-800 font-serif font-bold block">الْفِعْلُ</span><span className="text-[10px] font-bold text-gray-500 uppercase">Глагол</span></div>
+                    <div className="text-[11px] text-gray-700 bg-white p-2 rounded border border-amber-100 leading-tight flex-1">Имеет <strong>самостоятельный смысл</strong>, <strong>обязательно связан</strong> со временем.</div>
+                  </div>
+                  <div className="w-full bg-slate-50 border-t-2 border-slate-500 rounded-lg p-3 shadow-sm h-full flex flex-col">
+                    <div className="text-center mb-2"><span className="text-2xl text-slate-800 font-serif font-bold block">الْحَرْفُ</span><span className="text-[10px] font-bold text-gray-500 uppercase">Частица</span></div>
+                    <div className="text-[11px] text-gray-700 bg-white p-2 rounded border border-slate-200 leading-tight flex-1"><strong>Не имеет полного смысла</strong>; появляется только в связке с الاسم или الفعل.</div>
+                  </div>
+                </div>
+
+                {/* СЛИЯНИЕ 3 КОЛОНОК */}
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-[calc(16.666%-8px)] w-0.5 h-4 bg-emerald-400"></div>
+                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
+                  <div className="absolute top-0 right-[calc(16.666%-8px)] w-0.5 h-4 bg-emerald-400"></div>
+                  <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-emerald-400"></div>
+                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
+                </div>
+
+                <ChainLink />
+
+                {/* ==================== БЛОК 1 (ЧАСТЬ 2): И'РАБ И МАБНИ ==================== */}
+                <div className="inline-block bg-emerald-100/50 px-6 py-2 rounded-xl border border-emerald-200 shadow-sm z-10 text-center">
+                  <h2 className="text-2xl font-bold font-serif text-emerald-800">الْإِعْرَابُ وَالْبِنَاءُ</h2>
+                  <p className="text-[10px] font-normal uppercase text-emerald-600 tracking-widest">(СОСТОЯНИЕ СЛОВА)</p>
+                </div>
+
+                {/* ВЕТКИ (2 КОЛОНКИ) */}
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-emerald-400"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] w-0.5 h-4 bg-emerald-400"></div>
+                  <div className="absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-emerald-400"></div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6 w-full z-10 items-stretch">
+                  <div className="bg-green-50 p-4 rounded-xl border border-green-300 flex flex-col shadow-sm h-full">
+                    <h3 className="text-xl font-bold text-green-900 font-serif mb-1">الْمُعْرَبُ <span className="text-xs font-sans text-green-700">(Изменяемое)</span></h3>
+                    <p className="text-xs text-green-800 mb-3">Окончание слова меняется под воздействием факторов (падежей).</p>
+                    <div className="space-y-1.5 mt-auto">
+                      <div className="bg-white p-2 rounded text-xs flex justify-between items-center border border-green-100"><span className="text-gray-500">الرَّفْعُ (Им.п.)</span> <span className="font-serif text-base font-bold text-red-600">ــُـٌ</span></div>
+                      {/* ИСПРАВЛЕНО: class → className */}
+                      <div className="bg-white p-2 rounded text-xs flex justify-between items-center border border-green-100"><span className="text-gray-500">النَّصْبُ (Вин.п.)</span> <span className="font-serif text-base font-bold text-red-600">ــَـً</span></div>
+                      <div className="bg-white p-2 rounded text-xs flex justify-between items-center border border-green-100"><span className="text-gray-500">الْجَرُّ (Род.п. - только для Имен)</span> <span className="font-serif text-base font-bold text-red-600">ــِـٍ</span></div>
+                      <div className="bg-white p-2 rounded text-xs flex justify-between items-center border border-green-100"><span className="text-gray-500">الْجَزْمُ (Усеч. - только для Глаголов)</span> <span className="font-serif text-base font-bold text-red-600">ــْ</span></div>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-50 p-4 rounded-xl border border-red-300 flex flex-col shadow-sm h-full">
+                    <h3 className="text-xl font-bold text-red-900 font-serif mb-1">الْمَبْنِيُّ <span className="text-xs font-sans text-red-700">(Неизменяемое)</span></h3>
+                    <p className="text-xs text-red-800 mb-3">Окончание слова <strong>не меняется</strong>. Сюда относятся:</p>
+                    <ul className="text-xs list-disc list-inside mb-3 text-gray-700">
+                      <li>Все частицы (الْحَرْفُ)</li>
+                      <li>Глаголы: الْمَاضِي и الْأَمْرُ</li>
+                      <li>6 видов имен (الِاسْمُ)</li>
+                    </ul>
+                    <div className="grid grid-cols-2 gap-1.5 mt-auto">
+                      <div className="bg-white text-[10px] p-1.5 rounded border border-red-100 text-center text-gray-700 font-bold">Местоимения</div>
+                      <div className="bg-white text-[10px] p-1.5 rounded border border-red-100 text-center text-gray-700 font-bold">Указательные</div>
+                      <div className="bg-white text-[10px] p-1.5 rounded border border-red-100 text-center text-gray-700 font-bold">Относительные</div>
+                      <div className="bg-white text-[10px] p-1.5 rounded border border-red-100 text-center text-gray-700 font-bold">Условия</div>
+                      <div className="bg-white text-[10px] p-1.5 rounded border border-red-100 text-center text-gray-700 font-bold">Вопросительные</div>
+                      <div className="bg-white text-[10px] p-1.5 rounded border border-red-100 text-center text-gray-700 font-bold">Обстоятельства</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* СЛИЯНИЕ 2 КОЛОНОК */}
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-emerald-400"></div>
+                  <div className="absolute top-0 right-[calc(25%-6px)] w-0.5 h-4 bg-emerald-400"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-emerald-400"></div>
+                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
+                </div>
+
+                <ChainLink />
+
+                {/* ==================== БЛОК 2: РОД ИМЕНИ ==================== */}
+                <div className="inline-block bg-pink-50 px-6 py-2 rounded-xl border border-pink-200 shadow-sm z-10 text-center">
+                  <h2 className="text-2xl font-bold font-serif text-pink-800">الْمُذَكَّرُ وَالْمُؤَنَّثُ</h2>
+                  <p className="text-[10px] font-normal uppercase text-pink-600 tracking-widest">(РОД В АРАБСКОМ ЯЗЫКЕ)</p>
+                </div>
+
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-pink-400 -ml-[1px]"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-pink-400"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] w-0.5 h-4 bg-pink-400"></div>
+                  <div className="absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-pink-400"></div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6 w-full z-10 items-stretch">
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col shadow-sm h-full">
+                    <h3 className="font-bold text-blue-900 font-serif text-xl text-center mb-3">الْمُذَكَّرُ <span className="text-sm font-sans text-blue-700">(Мужской род)</span></h3>
+                    <p className="text-xs text-blue-800 text-center mt-auto bg-white p-3 rounded-lg border border-blue-100">Основа всех слов.<br/>Не требует доказательств.</p>
+                  </div>
+                  <div className="bg-pink-50 border border-pink-200 rounded-xl p-4 flex flex-col shadow-sm h-full">
+                    <h3 className="font-bold text-pink-900 font-serif text-xl text-center mb-3">الْمُؤَنَّثُ <span className="text-sm font-sans text-pink-700">(Женский род)</span></h3>
+                    <p className="text-[11px] text-pink-800 font-bold mb-1">Внешние признаки:</p>
+                    <div className="flex gap-2 mb-3">
+                      <div className="bg-white p-2 rounded text-center flex-1 text-sm font-serif font-bold text-pink-700 border border-pink-100">ــَةٌ <br/><span className="text-[9px] text-gray-500 font-sans font-normal">(سَيَّارَةٌ)</span></div>
+                      <div className="bg-white p-2 rounded text-center flex-1 text-sm font-serif font-bold text-pink-700 border border-pink-100">ــَى <br/><span className="text-[9px] text-gray-500 font-sans font-normal">(هُدَى)</span></div>
+                      <div className="bg-white p-2 rounded text-center flex-1 text-sm font-serif font-bold text-pink-700 border border-pink-100">ــَاءُ <br/><span className="text-[9px] text-gray-500 font-sans font-normal">(بَيْضَاءُ)</span></div>
+                    </div>
+                    <p className="text-[11px] text-pink-800 font-bold mb-1 mt-auto">Без признаков (по смыслу):</p>
+                    <p className="text-[10px] text-gray-700 leading-tight bg-white p-2 rounded border border-pink-100">Женщины (أُمٌّ), племена (رُوس), города/страны (مَكَّةُ), парные части тела (يَدٌ - рука).</p>
+                  </div>
+                </div>
+
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-pink-400"></div>
+                  <div className="absolute top-0 right-[calc(25%-6px)] w-0.5 h-4 bg-pink-400"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-pink-400"></div>
+                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
+                </div>
+
+                <ChainLink />
+
+                {/* ==================== БЛОК 3: ЧИСЛО ИМЕНИ ==================== */}
+                <div className="inline-block bg-indigo-50 px-6 py-2 rounded-xl border border-indigo-200 shadow-sm z-10 text-center">
+                  <h2 className="text-2xl font-bold font-serif text-indigo-800">عَدَدُ الِاسْمِ</h2>
+                  <p className="text-[10px] font-normal uppercase text-indigo-600 tracking-widest">(ЧИСЛО ИМЕНИ)</p>
+                </div>
+
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-indigo-400 -ml-[1px]"></div>
+                  <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-indigo-400"></div>
+                  <div className="absolute top-4 left-[calc(16.666%-8px)] w-0.5 h-4 bg-indigo-400"></div>
+                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-indigo-400 -ml-[1px]"></div>
+                  <div className="absolute top-4 right-[calc(16.666%-8px)] w-0.5 h-4 bg-indigo-400"></div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-6 w-full z-10 items-stretch">
+                  <div className="bg-indigo-50 border-t-2 border-indigo-400 rounded-xl p-3 text-center flex flex-col justify-center shadow-sm h-full">
+                    <div className="font-serif font-bold text-xl text-indigo-900">الْمُفْرَدُ</div>
+                    <div className="text-[10px] text-indigo-700 mb-2">Единственное (1)</div>
+                    <div className="bg-white text-sm font-serif p-2 rounded mt-2 border border-indigo-100">طَالِبٌ</div>
+                  </div>
+                  <div className="bg-indigo-50 border-t-2 border-indigo-500 rounded-xl p-3 text-center flex flex-col justify-center shadow-sm h-full">
+                    <div className="font-serif font-bold text-xl text-indigo-900">الْمُثَنَّى</div>
+                    <div className="text-[10px] text-indigo-700 mb-2">Двойственное (2)</div>
+                    <div className="bg-white text-sm font-serif p-1.5 rounded mb-1.5 mt-2 border border-indigo-100">طَالِبَانِ <span className="text-red-500 text-[10px]">(رَفْع)</span></div>
+                    <div className="bg-white text-sm font-serif p-1.5 rounded border border-indigo-100">طَالِبَيْنِ <span className="text-red-500 text-[10px]">(نَصْب/جَرّ)</span></div>
+                  </div>
+                  <div className="bg-indigo-50 border-t-2 border-indigo-600 rounded-xl p-3 flex flex-col items-center shadow-sm h-full">
+                    <div className="font-serif font-bold text-xl text-indigo-900">الْجَمْعُ</div>
+                    <div className="text-[10px] text-indigo-700 mb-2">Множественное (3+)</div>
+                    <div className="w-full space-y-1.5 text-left mt-auto">
+                      <div className="bg-white p-1.5 rounded border border-indigo-100">
+                        <span className="text-[9px] font-bold text-blue-600 block mb-0.5">Правильное мужское</span>
+                        <span className="font-serif text-xs">مُسْلِمُونَ / مُسْلِمِينَ</span>
+                      </div>
+                      <div className="bg-white p-1.5 rounded border border-indigo-100">
+                        <span className="text-[9px] font-bold text-pink-600 block mb-0.5">Правильное женское</span>
+                        <span className="font-serif text-xs">سَيَّارَاتٌ</span>
+                      </div>
+                      <div className="bg-white p-1.5 rounded border border-indigo-100">
+                        <span className="text-[9px] font-bold text-orange-600 block mb-0.5">Ломаное (التَّكْسِيرُ)</span>
+                        <span className="font-serif text-xs">كُتُبٌ (كِتَابٌ)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-[calc(16.666%-8px)] w-0.5 h-4 bg-indigo-400"></div>
+                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-indigo-400 -ml-[1px]"></div>
+                  <div className="absolute top-0 right-[calc(16.666%-8px)] w-0.5 h-4 bg-indigo-400"></div>
+                  <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-indigo-400"></div>
+                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
+                </div>
+
+                <ChainLink />
+
+                {/* ==================== БЛОК 4: ОПРЕДЕЛЕННОСТЬ ==================== */}
+                <div className="inline-block bg-amber-50 px-6 py-2 rounded-xl border border-amber-200 shadow-sm z-10 text-center">
+                  <h2 className="text-2xl font-bold font-serif text-amber-800">النَّكِرَةُ وَالمَعْرِفَةُ</h2>
+                  <p className="text-[10px] font-normal uppercase text-amber-600 tracking-widest">(ОПРЕДЕЛЕННОСТЬ)</p>
+                </div>
+
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-amber-400 -ml-[1px]"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-amber-400"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] w-0.5 h-4 bg-amber-400"></div>
+                  <div className="absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-amber-400"></div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6 w-full z-10 items-stretch">
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col shadow-sm h-full">
+                    <h3 className="font-bold font-serif text-gray-800 text-xl text-center mb-1">النَّكِرَةُ <span className="text-xs font-sans text-gray-600">(Неопределенное)</span></h3>
+                    <p className="text-xs text-center text-gray-600 mb-4">Указывает на что-то общее, неизвестное.</p>
+                    <div className="bg-white text-center font-serif p-3 rounded-lg shadow-sm text-lg mt-auto border border-gray-100">قَلَمٌ <span className="text-[11px] font-sans text-gray-500 block mt-1">(Какая-то ручка)</span></div>
+                  </div>
+                  <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 flex flex-col shadow-sm h-full">
+                    <h3 className="font-bold font-serif text-amber-900 text-xl text-center mb-1">المَعْرِفَةُ <span className="text-xs font-sans text-amber-700">(Определенное)</span></h3>
+                    <p className="text-xs text-center text-amber-700 mb-4">Указывает на конкретное. 6 видов:</p>
+                    <div className="grid grid-cols-2 gap-2 text-[10px] mt-auto font-bold">
+                      <div className="bg-white p-2 rounded text-center border border-amber-100 shadow-sm text-gray-700">1. С артиклем (القَلَمُ)</div>
+                      <div className="bg-white p-2 rounded text-center border border-amber-100 shadow-sm text-gray-700">2. Местоимения (هُوَ)</div>
+                      <div className="bg-white p-2 rounded text-center border border-amber-100 shadow-sm text-gray-700">3. Имена собств. (مَكَّةُ)</div>
+                      <div className="bg-white p-2 rounded text-center border border-amber-100 shadow-sm text-gray-700">4. Указательные (هَذَا)</div>
+                      <div className="bg-white p-2 rounded text-center border border-amber-100 shadow-sm text-gray-700">5. Относительные (الَّذِي)</div>
+                      <div className="bg-white p-2 rounded text-center border border-amber-100 shadow-sm text-gray-700">6. Идафа (كِتَابُكَ)</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-amber-400"></div>
+                  <div className="absolute top-0 right-[calc(25%-6px)] w-0.5 h-4 bg-amber-400"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-amber-400"></div>
+                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
+                </div>
+
+                <ChainLink />
+
+                {/* ==================== БЛОК 5: МЕСТОИМЕНИЯ ==================== */}
+                <div className="inline-block bg-purple-50 px-6 py-2 rounded-xl border border-purple-200 shadow-sm z-10 text-center">
+                  <h2 className="text-2xl font-bold font-serif text-purple-800">الضَّمَائِرُ</h2>
+                  <p className="text-[10px] font-normal uppercase text-purple-600 tracking-widest">(МЕСТОИМЕНИЯ)</p>
+                </div>
+
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-purple-400 -ml-[1px]"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-purple-400"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] w-0.5 h-4 bg-purple-400"></div>
+                  <div className="absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-purple-400"></div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6 w-full z-10">
+                  <div className="bg-purple-50 p-3 rounded-xl text-center border border-purple-200 shadow-sm">
+                    <h3 className="font-bold font-serif text-purple-900 text-lg">الْمُنْفَصِلَةُ</h3>
+                    <p className="text-xs text-purple-700 mt-1">Раздельные (أَنَا, هُوَ)</p>
+                  </div>
+                  <div className="bg-fuchsia-50 p-3 rounded-xl text-center border border-fuchsia-200 shadow-sm">
+                    <h3 className="font-bold font-serif text-fuchsia-900 text-lg">الْمُتَّصِلَةُ</h3>
+                    <p className="text-xs text-fuchsia-700 mt-1">Слитные (كِتَابِي, فِيهِ)</p>
+                  </div>
+                </div>
+
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-purple-400"></div>
+                  <div className="absolute top-0 right-[calc(25%-6px)] w-0.5 h-4 bg-purple-400"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-purple-400"></div>
+                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-purple-400 -ml-[1px]"></div>
+                </div>
+
+                {/* Разветвление на 3 лица */}
+                <div className="relative w-full h-8 z-0 -mt-4">
+                  <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-purple-400"></div>
+                  <div className="absolute top-4 left-[calc(16.666%-8px)] w-0.5 h-4 bg-purple-400"></div>
+                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-purple-400 -ml-[1px]"></div>
+                  <div className="absolute top-4 right-[calc(16.666%-8px)] w-0.5 h-4 bg-purple-400"></div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-6 w-full z-10 items-stretch">
+                  {PRONOUNS.map((p, i) => (
+                    <div key={i} className="bg-gray-50 border border-gray-200 rounded-xl p-3 shadow-sm flex flex-col h-full">
+                      <div className="text-xs font-bold text-gray-500 mb-3 text-center border-b border-gray-200 pb-1.5">{p.face}</div>
+                      <div className="space-y-1.5 mt-auto">
+                        {p.items.map((it, idx) => (
+                          <div key={idx} className="flex justify-between items-center bg-white p-1.5 rounded border border-gray-100">
+                            <span className="w-12 text-gray-400 text-[10px]">{it.ru}</span>
+                            <span className="font-serif text-purple-800 font-bold text-sm">{it.m}</span>
+                            <span className="text-gray-200">|</span>
+                            <span className="font-serif text-fuchsia-800 font-bold text-sm">{it.s}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-[calc(16.666%-8px)] w-0.5 h-4 bg-purple-400"></div>
+                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-purple-400 -ml-[1px]"></div>
+                  <div className="absolute top-0 right-[calc(16.666%-8px)] w-0.5 h-4 bg-purple-400"></div>
+                  <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-purple-400"></div>
+                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
+                </div>
+
+                <ChainLink />
+
+                {/* ==================== БЛОК 6: ПРЕДЛОЖЕНИЯ ==================== */}
+                <div className="inline-block bg-teal-50 px-6 py-2 rounded-xl border border-teal-200 shadow-sm z-10 text-center">
+                  <h2 className="text-2xl font-bold font-serif text-teal-800">أَقْسَامُ الْجُمْلَةِ</h2>
+                  <p className="text-[10px] font-normal uppercase text-teal-600 tracking-widest">(ВИДЫ ПРЕДЛОЖЕНИЙ)</p>
+                </div>
+
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-teal-400 -ml-[1px]"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-teal-400"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] w-0.5 h-4 bg-teal-400"></div>
+                  <div className="absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-teal-400"></div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6 w-full z-10 items-stretch">
+                  <div className="bg-teal-50 p-4 rounded-xl border border-teal-200 flex flex-col shadow-sm h-full">
+                    <h3 className="font-bold font-serif text-teal-900 text-xl text-center mb-1">الْجُمْلَةُ الِاسْمِيَّةُ</h3>
+                    <p className="text-xs text-center text-teal-700 mb-4">Именное предложение (начинается с Имени). Состоит из двух главных частей:</p>
+                    <div className="flex gap-3 mt-auto">
+                      <div className="bg-white p-3 rounded-lg flex-1 text-center border border-teal-100 shadow-sm">
+                        <span className="font-serif font-bold text-teal-800 text-lg">الْمُبْتَدَأُ</span><br/>
+                        <span className="text-[10px] text-gray-500 block mt-1">Подлежащее</span>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg flex-1 text-center border border-teal-100 shadow-sm">
+                        <span className="font-serif font-bold text-teal-800 text-lg">الْخَبَرُ</span><br/>
+                        <span className="text-[10px] text-gray-500 block mt-1">Сказуемое</span>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-center text-red-500 mt-3 font-bold bg-white/50 py-1 rounded">Оба всегда в падеже الرَّفْع!</div>
+                  </div>
+
+                  <div className="bg-cyan-50 p-4 rounded-xl border border-cyan-200 flex flex-col shadow-sm h-full">
+                    <h3 className="font-bold font-serif text-cyan-900 text-xl text-center mb-1">الْجُمْلَةُ الْفِعْلِيَّةُ</h3>
+                    <p className="text-xs text-center text-cyan-700 mb-4">Глагольное предложение (начинается с Глагола).</p>
+                    <div className="bg-white p-4 rounded-lg text-center border border-cyan-100 font-serif text-2xl mt-auto shadow-sm">
+                      <span className="text-cyan-800 font-bold">ذَهَبَ</span> مُحَمَّدٌ
+                      <div className="text-xs font-sans text-gray-500 mt-2">Ушел Мухаммад</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative w-full h-8 z-0">
+                  <div className="absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-teal-400"></div>
+                  <div className="absolute top-0 right-[calc(25%-6px)] w-0.5 h-4 bg-teal-400"></div>
+                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-teal-400"></div>
+                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
+                </div>
+
+                <ChainLink />
+
+                {/* ==================== БЛОК 7: ГЛАГОЛЫ ==================== */}
+                {/* ИСПРАВЛЕНО: убран дублирующий класс z-10 */}
+                <div className="inline-block bg-orange-50 px-6 py-2 rounded-xl border border-orange-200 shadow-sm z-10 text-center relative">
+                  <h2 className="text-2xl font-bold font-serif text-orange-800">الْأَفْعَالُ</h2>
+                  <p className="text-[10px] font-normal uppercase text-orange-600 tracking-widest">(СПРЯЖЕНИЕ ГЛАГОЛОВ)</p>
+                </div>
+
+                <div className="w-0.5 h-8 bg-emerald-400 relative z-0"></div>
+
+                <div className="overflow-hidden rounded-xl border-2 border-emerald-400 shadow-md relative z-20 w-full">
+                  <table className="w-full text-center text-sm">
+                    <thead className="bg-orange-100 text-orange-900 font-bold text-xs uppercase">
+                      <tr>
+                        <th className="p-3 border-b-2 border-r border-orange-200">Лицо / Местоимение</th>
+                        <th className="p-3 border-b-2 border-r border-orange-200">الْمَاضِي (Прошедшее)</th>
+                        <th className="p-3 border-b-2 border-r border-orange-200">الْمُضَارِعُ (Наст./Буд.)</th>
+                        <th className="p-3 border-b-2 border-orange-200">الْأَمْرُ (Приказ)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white">
+                      {VERBS.map((v, i) => (
+                        <tr key={i} className="border-b border-orange-50 hover:bg-orange-50/50 transition-colors">
+                          <td className="p-2.5 border-r border-orange-100 text-xs font-bold text-gray-600">{v.face}</td>
+                          <td className="p-2.5 border-r border-orange-100 font-serif text-lg text-orange-800 font-bold">{v.madi}</td>
+                          <td className="p-2.5 border-r border-orange-100 font-serif text-lg text-blue-800 font-bold">{v.mudari}</td>
+                          <td className="p-2.5 font-serif text-lg text-red-800 font-bold">{v.amr}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<ArabicGrammarApp />);
   </script>
 </body>
 </html>
