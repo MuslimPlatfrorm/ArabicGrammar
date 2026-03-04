@@ -4,801 +4,1151 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <title>Справочник Арабской Грамматики</title>
-
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet">
-
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            serif: ['Amiri', 'serif'],
-          }
-        }
-      }
+      theme: { extend: { fontFamily: { sans: ['Inter','sans-serif'], serif: ['Amiri','serif'] } } }
     }
   </script>
-
   <style>
     body { -webkit-overflow-scrolling: touch; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background-color: rgba(52, 211, 153, 0.5); border-radius: 10px; }
-
-    /*
-      Safari/macOS fix: transform: scale() меняет визуальный размер, но НЕ layout-footprint.
-      ScaleWrapper компенсирует это, явно задавая высоту = naturalHeight × scale.
-    */
-    .scale-wrapper {
-      transform-origin: top center;
-      will-change: transform;
-    }
-
-    /* Изолируем stacking context каждого блока */
-    .grammar-block { isolation: isolate; }
-
-    /*
-      prefers-reduced-motion: отключает все анимации, если пользователь
-      включил эту настройку в системе (iOS, Android, macOS, Windows, Smart TV).
-    */
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background-color:rgba(52,211,153,.5); border-radius:10px; }
+    .scale-wrapper { transform-origin:top center; will-change:transform; }
+    .grammar-block { isolation:isolate; }
     @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
-      }
-      .scale-wrapper { transition: none !important; }
+      *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; }
+      .scale-wrapper { transition:none!important; }
     }
   </style>
 </head>
 <body class="bg-emerald-50 font-sans text-gray-800 m-0 p-0 overflow-hidden h-[100dvh]">
+<div id="root" class="w-full h-full"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect, useCallback } = React;
 
-  <div id="root" class="w-full h-full"></div>
+/* ─── Arabic wrapper ─── */
+const Ar = ({ children, className = '' }) => (
+  <span dir="rtl" lang="ar" className={`font-serif ${className}`}>{children}</span>
+);
 
-  <script type="text/babel">
-    const { useState, useRef, useEffect, useCallback } = React;
+/* ─── Lesson badge ─── */
+const LBadge = ({ n }) => (
+  <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 mb-1">
+    Урок {n}
+  </span>
+);
 
-    // ============================================================
-    // СТАТИЧЕСКИЕ ДАННЫЕ — вне компонента, не пересоздаются при ререндере
-    // ============================================================
-    const VERBS = [
-      { face: 'أَنَا (Я)',            madi: 'ذَهَبْتُ',    mudari: 'أَذْهَبُ',    amr: '-' },
-      { face: 'نَحْنُ (Мы)',           madi: 'ذَهَبْنَا',   mudari: 'نَذْهَبُ',    amr: '-' },
-      { face: 'أَنْتَ (Ты м)',         madi: 'ذَهَبْتَ',    mudari: 'تَذْهَبُ',    amr: 'اِذْهَبْ' },
-      { face: 'أَنْتِ (Ты ж)',         madi: 'ذَهَبْتِ',    mudari: 'تَذْهَبِينَ', amr: 'اِذْهَبِي' },
-      { face: 'أَنْتُمَا (Вы 2)',      madi: 'ذَهَبْتُمَا', mudari: 'تَذْهَبَانِ', amr: 'اِذْهَبَا' },
-      { face: 'أَنْتُمْ (Вы мн. м)',   madi: 'ذَهَبْتُمْ',  mudari: 'تَذْهَبُونَ', amr: 'اِذْهَبُوا' },
-      { face: 'أَنْتُنَّ (Вы мн. ж)',  madi: 'ذَهَبْتُنَّ', mudari: 'تَذْهَبْنَ',  amr: '-' },
-      { face: 'هُوَ (Он)',             madi: 'ذَهَبَ',      mudari: 'يَذْهَبُ',    amr: '-' },
-      { face: 'هِيَ (Она)',            madi: 'ذَهَبَتْ',    mudari: 'تَذْهَبُ',    amr: '-' },
-      { face: 'هُمَا (Они 2)',         madi: 'ذَهَبَا',     mudari: 'يَذْهَبَانِ', amr: '-' },
-      { face: 'هُمْ (Они мн. м)',      madi: 'ذَهَبُوا',    mudari: 'يَذْهَبُونَ', amr: '-' },
-      { face: 'هُنَّ (Они мн. ж)',     madi: 'ذَهَبْنَ',    mudari: 'يَذْهَبْنَ',  amr: '-' },
-    ];
+/* ─── Example row ─── */
+const Ex = ({ ar, ru }) => (
+  <div className="flex items-baseline gap-2 py-0.5">
+    <Ar className="text-base font-bold text-gray-800">{ar}</Ar>
+    <span className="text-[11px] text-gray-500">— {ru}</span>
+  </div>
+);
 
-    const PRONOUNS = [
-      { face: '3 лицо (Он/Она)', items: [
-        { m: 'هُوَ',      s: 'ــهُ / ــهِ', ru: 'Он/Его'   },
-        { m: 'هِيَ',      s: 'ــهَا',        ru: 'Она/Ее'   },
-        { m: 'هُمَا',     s: 'ــهُمَا',      ru: 'Они двое' },
-        { m: 'هُمْ',      s: 'ــهُمْ',       ru: 'Они (м)'  },
-        { m: 'هُنَّ',     s: 'ــهُنَّ',      ru: 'Они (ж)'  },
-      ]},
-      { face: '2 лицо (Ты/Вы)', items: [
-        { m: 'أَنْتَ',    s: 'ــكَ',         ru: 'Ты (м)'   },
-        { m: 'أَنْتِ',    s: 'ــكِ',         ru: 'Ты (ж)'   },
-        { m: 'أَنْتُمَا', s: 'ــكُمَا',      ru: 'Вы двое'  },
-        { m: 'أَنْتُمْ',  s: 'ــكُمْ',       ru: 'Вы (м)'   },
-        { m: 'أَنْتُنَّ', s: 'ــكُنَّ',      ru: 'Вы (ж)'   },
-      ]},
-      { face: '1 лицо (Я/Мы)', items: [
-        { m: 'أَنَا',     s: 'ــي / ــنِي',  ru: 'Я/Мой'    },
-        { m: 'نَحْنُ',    s: 'ــنَا',        ru: 'Мы/Наш'   },
-      ]},
-    ];
+/* ─── Section divider ─── */
+const ChainLink = () => <div className="w-0.5 h-12 bg-emerald-400 z-0"></div>;
 
-    // ============================================================
-    // Ar — обёртка для арабского текста.
-    // dir="rtl" lang="ar" обеспечивают корректное отображение огласовок,
-    // правильное направление вязи и произношение в screen readers
-    // (iOS VoiceOver, Android TalkBack, NVDA, JAWS).
-    // ============================================================
-    const Ar = ({ children, className = '' }) => (
-      <span dir="rtl" lang="ar" className={`font-serif ${className}`}>
+const V2down = ({ c='emerald' }) => (
+  <div className="relative w-full h-8 z-0">
+    <div className={`absolute top-0 left-1/2 w-0.5 h-4 bg-${c}-400 -ml-[1px]`}></div>
+    <div className={`absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-${c}-400`}></div>
+    <div className={`absolute top-4 left-[calc(25%-6px)] w-0.5 h-4 bg-${c}-400`}></div>
+    <div className={`absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-${c}-400`}></div>
+  </div>
+);
+const V2up = ({ tc='emerald', bc='emerald' }) => (
+  <div className="relative w-full h-8 z-0">
+    <div className={`absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-${tc}-400`}></div>
+    <div className={`absolute top-0 right-[calc(25%-6px)] w-0.5 h-4 bg-${tc}-400`}></div>
+    <div className={`absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-${tc}-400`}></div>
+    <div className={`absolute top-4 left-1/2 w-0.5 h-4 bg-${bc}-400 -ml-[1px]`}></div>
+  </div>
+);
+const V3down = ({ c='emerald' }) => (
+  <div className="relative w-full h-8 z-0">
+    <div className={`absolute top-0 left-1/2 w-0.5 h-4 bg-${c}-400 -ml-[1px]`}></div>
+    <div className={`absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-${c}-400`}></div>
+    <div className={`absolute top-4 left-[calc(16.666%-8px)] w-0.5 h-4 bg-${c}-400`}></div>
+    <div className={`absolute top-4 left-1/2 w-0.5 h-4 bg-${c}-400 -ml-[1px]`}></div>
+    <div className={`absolute top-4 right-[calc(16.666%-8px)] w-0.5 h-4 bg-${c}-400`}></div>
+  </div>
+);
+const V3up = ({ tc='emerald', bc='emerald' }) => (
+  <div className="relative w-full h-8 z-0">
+    <div className={`absolute top-0 left-[calc(16.666%-8px)] w-0.5 h-4 bg-${tc}-400`}></div>
+    <div className={`absolute top-0 left-1/2 w-0.5 h-4 bg-${tc}-400 -ml-[1px]`}></div>
+    <div className={`absolute top-0 right-[calc(16.666%-8px)] w-0.5 h-4 bg-${tc}-400`}></div>
+    <div className={`absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-${tc}-400`}></div>
+    <div className={`absolute top-4 left-1/2 w-0.5 h-4 bg-${bc}-400 -ml-[1px]`}></div>
+  </div>
+);
+
+/* ─── ScaleWrapper (Safari/macOS fix) ─── */
+const ScaleWrapper = ({ scale, children }) => {
+  const innerRef = useRef(null);
+  const [nh, setNh] = useState(0);
+  useEffect(() => {
+    if (!innerRef.current) return;
+    const m = () => { if (innerRef.current) setNh(innerRef.current.scrollHeight); };
+    m();
+    const ro = new ResizeObserver(m);
+    ro.observe(innerRef.current);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div style={{ height: nh ? nh * scale : 'auto', width: '100%' }}>
+      <div ref={innerRef} className="scale-wrapper transition-transform duration-200 ease-out"
+        style={{ transform:`scale(${scale})`, width:'fit-content', margin:'0 auto' }}>
         {children}
+      </div>
+    </div>
+  );
+};
+
+/* ─── ZoomPanel ─── */
+const ZoomPanel = ({ scale, zoomIn, zoomOut, resetZoom }) => {
+  const [pos, setPos] = useState({ top:16, right:16, left:'auto' });
+  const [drag, setDrag] = useState(false);
+  const ref = useRef(null);
+  const info = useRef({});
+  const moved = useRef(false);
+
+  const onDown = e => {
+    e.stopPropagation(); setDrag(true); moved.current = false;
+    const r = ref.current.getBoundingClientRect();
+    info.current = { sx:e.clientX, sy:e.clientY, rl:r.left, rt:r.top };
+    setPos({ top:r.top, left:r.left, right:'auto' });
+  };
+  useEffect(() => {
+    const onMove = e => {
+      if (!drag) return;
+      const dx=e.clientX-info.current.sx, dy=e.clientY-info.current.sy;
+      if (Math.abs(dx)>3||Math.abs(dy)>3) moved.current=true;
+      setPos({ top:info.current.rt+dy, left:info.current.rl+dx, right:'auto' });
+    };
+    const onUp = () => {
+      if (!drag) return; setDrag(false);
+      if (ref.current) {
+        const r=ref.current.getBoundingClientRect();
+        const il=r.left+r.width/2<window.innerWidth/2;
+        setPos({ top:r.top, ...(il?{left:16,right:'auto'}:{right:16,left:'auto'}) });
+      }
+    };
+    if (drag) {
+      window.addEventListener('pointermove',onMove);
+      window.addEventListener('pointerup',onUp);
+      window.addEventListener('pointercancel',onUp);
+      document.body.style.userSelect='none';
+    }
+    return () => {
+      window.removeEventListener('pointermove',onMove);
+      window.removeEventListener('pointerup',onUp);
+      window.removeEventListener('pointercancel',onUp);
+      document.body.style.userSelect='';
+    };
+  }, [drag]);
+
+  const kh = fn => e => { if(e.key==='Enter'||e.key===' '){e.preventDefault();if(!moved.current)fn();}};
+  const bc = "p-2 hover:bg-emerald-100 rounded-lg text-emerald-700 cursor-pointer touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400";
+
+  return (
+    <div ref={ref} onPointerDown={onDown} role="toolbar" aria-label="Панель масштабирования"
+      style={{ position:'fixed', top:pos.top, left:pos.left, right:pos.right,
+        transition:drag?'none':'left .3s,right .3s,top .3s', zIndex:50 }}
+      className={`cursor-grab active:cursor-grabbing touch-none bg-white/95 backdrop-blur shadow-md rounded-xl border border-emerald-200 p-1 flex items-center gap-1 transition-all ${drag?'opacity-100 shadow-xl scale-105':'opacity-90 hover:opacity-100'}`}>
+      <button aria-label="Уменьшить" tabIndex={0} className={bc}
+        onClick={e=>{e.stopPropagation();if(!moved.current)zoomOut();}}
+        onKeyDown={kh(zoomOut)}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+      <span aria-live="polite" aria-label={`Масштаб ${Math.round(scale*100)} процентов`}
+        className="min-w-[3.5rem] text-center font-bold text-emerald-800 text-sm select-none">
+        {Math.round(scale*100)}%
       </span>
-    );
+      <button aria-label="Увеличить" tabIndex={0} className={bc}
+        onClick={e=>{e.stopPropagation();if(!moved.current)zoomIn();}}
+        onKeyDown={kh(zoomIn)}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+      <div className="w-px bg-emerald-200 mx-1 h-6" aria-hidden="true"></div>
+      <button aria-label="Сбросить 100%" tabIndex={0} className={bc}
+        onClick={e=>{e.stopPropagation();if(!moved.current)resetZoom();}}
+        onKeyDown={kh(resetZoom)}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      </button>
+    </div>
+  );
+};
 
-    // ============================================================
-    // Звено цепи — простой вертикальный соединитель
-    // ============================================================
-    const ChainLink = () => (
-      <div className="w-0.5 h-12 bg-emerald-400 z-0"></div>
-    );
+/* ══════════════════════════════════════════════════════
+   DATA
+══════════════════════════════════════════════════════ */
 
-    // ============================================================
-    // ScaleWrapper — исправление наложения блоков при scale() в Safari/macOS.
-    // ResizeObserver отслеживает изменения размеров при загрузке шрифтов.
-    // ============================================================
-    const ScaleWrapper = ({ scale, children }) => {
-      const innerRef = useRef(null);
-      const [naturalHeight, setNaturalHeight] = useState(0);
+const PAST = [
+  { pr:'أَنَا', ru:'Я',         verb:'ذَهَبْتُ',    rule:'+تُ',    more:'قَرَأْتُ — سَكَنْتُ', p:1 },
+  { pr:'نَحْنُ', ru:'Мы',        verb:'ذَهَبْنَا',   rule:'+نَا',   more:'قَرَأْنَا', p:1 },
+  { pr:'أَنْتَ', ru:'Ты (м)',    verb:'ذَهَبْتَ',    rule:'+تَ',    more:'قَرَأْتَ', p:2 },
+  { pr:'أَنْتِ', ru:'Ты (ж)',    verb:'ذَهَبْتِ',    rule:'+تِ',    more:'قَرَأْتِ', p:2 },
+  { pr:'أَنْتُمَا',ru:'Вы двое', verb:'ذَهَبْتُمَا', rule:'+تُمَا', more:'قَرَأْتُمَا', p:2 },
+  { pr:'أَنْتُمْ', ru:'Вы (м)',  verb:'ذَهَبْتُمْ',  rule:'+تُمْ',  more:'قَرَأْتُمْ', p:2 },
+  { pr:'أَنْتُنَّ',ru:'Вы (ж)', verb:'ذَهَبْتُنَّ', rule:'+تُنَّ', more:'قَرَأْتُنَّ', p:2 },
+  { pr:'هُوَ',   ru:'Он',        verb:'ذَهَبَ',      rule:'основа', more:'قَرَأَ — أَكَلَ', p:3 },
+  { pr:'هِيَ',   ru:'Она',       verb:'ذَهَبَتْ',    rule:'+تْ',    more:'قَرَأَتْ — سَكَنَتْ', p:3 },
+  { pr:'هُمَا',  ru:'Они двое',  verb:'ذَهَبَا',     rule:'+ا',     more:'سَكَنَا', p:3 },
+  { pr:'هُمْ',   ru:'Они (м)',   verb:'ذَهَبُوا',    rule:'+وا',    more:'قَرَأُوا — سَكَنُوا', p:3 },
+  { pr:'هُنَّ',  ru:'Они (ж)',   verb:'ذَهَبْنَ',    rule:'+نَ',    more:'قَرَأْنَ', p:3 },
+];
 
-      useEffect(() => {
-        if (!innerRef.current) return;
-        const measure = () => {
-          if (innerRef.current) setNaturalHeight(innerRef.current.scrollHeight);
-        };
-        measure();
-        const ro = new ResizeObserver(measure);
-        ro.observe(innerRef.current);
-        return () => ro.disconnect();
-      }, []);
+const PRESENT = [
+  { pr:'أَنَا',   ru:'Я',         verb:'أَذْهَبُ',     rule:'أَ+',     more:'أَقْرَأُ — آكُلُ — أَنَامُ — أَسْتَيْقِظُ', p:1 },
+  { pr:'نَحْنُ',  ru:'Мы',        verb:'نَذْهَبُ',     rule:'نَ+',     more:'نَقْرَأُ', p:1 },
+  { pr:'أَنْتَ',  ru:'Ты (м)',    verb:'تَذْهَبُ',     rule:'تَ+',     more:'تَقْرَأُ', p:2 },
+  { pr:'أَنْتِ',  ru:'Ты (ж)',    verb:'تَذْهَبِينَ',  rule:'تَ++ينَ', more:'', p:2 },
+  { pr:'أَنْتُمَا',ru:'Вы двое', verb:'تَذْهَبَانِ',  rule:'تَ++انِ', more:'', p:2 },
+  { pr:'أَنْتُمْ', ru:'Вы (м)',  verb:'تَذْهَبُونَ',  rule:'تَ++ونَ', more:'', p:2 },
+  { pr:'أَنْتُنَّ',ru:'Вы (ж)', verb:'تَذْهَبْنَ',   rule:'تَ++نَ',  more:'', p:2 },
+  { pr:'هُوَ',    ru:'Он',        verb:'يَذْهَبُ',     rule:'يَ+',     more:'يَقْرَأُ', p:3 },
+  { pr:'هِيَ',    ru:'Она',       verb:'تَذْهَبُ',     rule:'تَ+',     more:'', p:3 },
+  { pr:'هُمَا',   ru:'Они двое', verb:'يَذْهَبَانِ',  rule:'يَ++انِ', more:'', p:3 },
+  { pr:'هُمْ',    ru:'Они (м)',   verb:'يَذْهَبُونَ',  rule:'يَ++ونَ', more:'', p:3 },
+  { pr:'هُنَّ',   ru:'Они (ж)',  verb:'يَذْهَبْنَ',   rule:'يَ++نَ',  more:'', p:3 },
+];
 
-      return (
-        <div style={{ height: naturalHeight ? naturalHeight * scale : 'auto', width: '100%' }}>
-          <div
-            ref={innerRef}
-            className="scale-wrapper transition-transform duration-200 ease-out"
-            style={{ transform: `scale(${scale})`, width: 'fit-content', margin: '0 auto' }}
-          >
-            {children}
-          </div>
-        </div>
-      );
-    };
+const IMPERATIVE = [
+  { pr:'أَنْتَ',   ru:'Ты (м)',  verb:'اِذْهَبْ',  note:'основа' },
+  { pr:'أَنْتِ',   ru:'Ты (ж)',  verb:'اِذْهَبِي', note:'+ي' },
+  { pr:'أَنْتُمَا',ru:'Вы двое', verb:'اِذْهَبَا', note:'+ا' },
+  { pr:'أَنْتُمْ', ru:'Вы (м)',  verb:'اِذْهَبُوا',note:'+وا' },
+  { pr:'أَنْتُنَّ',ru:'Вы (ж)', verb:'—',         note:'—' },
+];
 
-    // ============================================================
-    // ZoomPanel — перетаскиваемая панель масштаба.
-    // aria-label + aria-live + onKeyDown (Enter/Space) — полная
-    // поддержка клавиатуры и screen readers на всех платформах.
-    // ============================================================
-    const ZoomPanel = ({ scale, zoomIn, zoomOut, resetZoom }) => {
-      const [position, setPosition] = useState({ top: 16, right: 16, left: 'auto' });
-      const [isDragging, setIsDragging] = useState(false);
-      const dragRef = useRef(null);
-      const dragInfo = useRef({ startX: 0, startY: 0, rectLeft: 0, rectTop: 0 });
-      const hasMoved = useRef(false);
+const ATTACHED = [
+  { pr:'أَنَا',    ru:'Я/Мой',    suf:'ي / ني',  ism:'كِتَابِي',   fi:'ضَرَبَنِي',  hf:'فِيَّ — إِلَيَّ', p:1 },
+  { pr:'نَحْنُ',   ru:'Мы/Наш',   suf:'نَا',     ism:'كِتَابُنَا', fi:'—',          hf:'فِينَا — إِلَيْنَا', p:1 },
+  { pr:'أَنْتَ',   ru:'Ты (м)',   suf:'كَ',      ism:'كِتَابُكَ',  fi:'ضَرَبَكَ',   hf:'فِيكَ — عَلَيْكَ', p:2 },
+  { pr:'أَنْتِ',   ru:'Ты (ж)',   suf:'كِ',      ism:'كِتَابُكِ',  fi:'—',          hf:'فِيكِ', p:2 },
+  { pr:'أَنْتُمَا',ru:'Вы двое', suf:'كُمَا',   ism:'كِتَابُكُمَا',fi:'—',         hf:'فِيكُمَا', p:2 },
+  { pr:'أَنْتُمْ', ru:'Вы (м)',  suf:'كُمْ',    ism:'كِتَابُكُمْ', fi:'—',          hf:'فِيكُمْ — عَلَيْكُمْ', p:2 },
+  { pr:'أَنْتُنَّ',ru:'Вы (ж)', suf:'كُنَّ',   ism:'كِتَابُكُنَّ',fi:'—',          hf:'فِيكُنَّ', p:2 },
+  { pr:'هُوَ',     ru:'Он/Его',   suf:'هُ / هِ', ism:'كِتَابُهُ',  fi:'—',          hf:'فِيهِ — بِهِ', p:3 },
+  { pr:'هِيَ',     ru:'Она/Её',  suf:'هَا',     ism:'كِتَابُهَا', fi:'—',          hf:'فِيهَا', p:3 },
+  { pr:'هُمَا',    ru:'Они двое', suf:'هُمَا',   ism:'كِتَابُهُمَا',fi:'—',         hf:'—', p:3 },
+  { pr:'هُمْ',     ru:'Они (м)', suf:'هُمْ',    ism:'كِتَابُهُمْ', fi:'—',          hf:'—', p:3 },
+  { pr:'هُنَّ',    ru:'Они (ж)', suf:'هُنَّ',   ism:'كِتَابُهُنَّ',fi:'—',          hf:'—', p:3 },
+];
 
-      const handlePointerDown = (e) => {
-        e.stopPropagation();
-        setIsDragging(true);
-        hasMoved.current = false;
-        const rect = dragRef.current.getBoundingClientRect();
-        dragInfo.current = { startX: e.clientX, startY: e.clientY, rectLeft: rect.left, rectTop: rect.top };
-        setPosition({ top: rect.top, left: rect.left, right: 'auto' });
-      };
+/* ─── TABLE component ─── */
+const Tbl = ({ headers, rows, rowCls }) => (
+  <div className="overflow-hidden rounded-xl border-2 border-emerald-300 shadow-sm w-full">
+    <table className="w-full text-center text-sm" role="table">
+      <thead className="bg-emerald-50 text-emerald-900 font-bold text-[10px] uppercase">
+        <tr>{headers.map((h,i) => <th key={i} scope="col" className="p-2 border-b-2 border-r last:border-r-0 border-emerald-200">{h}</th>)}</tr>
+      </thead>
+      <tbody className="bg-white">
+        {rows.map((r,i) => (
+          <tr key={i} className={`border-b border-gray-50 hover:bg-emerald-50/30 transition-colors ${rowCls?rowCls(r):''}`}>
+            {r.map((cell,j) => <td key={j} className="p-2 border-r last:border-r-0 border-gray-100">{cell}</td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
 
-      useEffect(() => {
-        const handlePointerMove = (e) => {
-          if (!isDragging) return;
-          const dx = e.clientX - dragInfo.current.startX;
-          const dy = e.clientY - dragInfo.current.startY;
-          if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved.current = true;
-          setPosition({ top: dragInfo.current.rectTop + dy, left: dragInfo.current.rectLeft + dx, right: 'auto' });
-        };
-        const handlePointerUp = () => {
-          if (!isDragging) return;
-          setIsDragging(false);
-          if (dragRef.current) {
-            const rect = dragRef.current.getBoundingClientRect();
-            const isLeft = rect.left + rect.width / 2 < window.innerWidth / 2;
-            setPosition({ top: rect.top, ...(isLeft ? { left: 16, right: 'auto' } : { right: 16, left: 'auto' }) });
-          }
-        };
-        if (isDragging) {
-          window.addEventListener('pointermove', handlePointerMove);
-          window.addEventListener('pointerup', handlePointerUp);
-          window.addEventListener('pointercancel', handlePointerUp);
-          document.body.style.userSelect = 'none';
-        }
-        return () => {
-          window.removeEventListener('pointermove', handlePointerMove);
-          window.removeEventListener('pointerup', handlePointerUp);
-          window.removeEventListener('pointercancel', handlePointerUp);
-          document.body.style.userSelect = '';
-        };
-      }, [isDragging]);
+/* ─── Block header ─── */
+const BHead = ({ ar, ru, bg='emerald', lesson }) => (
+  <div className={`inline-block bg-${bg}-50 px-6 py-2 rounded-xl border border-${bg}-200 shadow-sm z-10 text-center`}>
+    {lesson && <div className="flex justify-center mb-1"><LBadge n={lesson} /></div>}
+    <h2 className={`text-2xl font-bold font-serif text-${bg}-800`}><Ar>{ar}</Ar></h2>
+    <p className={`text-[10px] font-normal uppercase text-${bg}-600 tracking-widest`}>({ru})</p>
+  </div>
+);
 
-      const makeKeyHandler = (action) => (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!hasMoved.current) action(); }
-      };
+/* ─── Info box ─── */
+const IBox = ({ children, color='emerald' }) => (
+  <div className={`bg-${color}-50 border border-${color}-200 rounded-lg p-3 text-xs text-${color}-900`}>{children}</div>
+);
 
-      const btnCls = "p-2 hover:bg-emerald-100 rounded-lg text-emerald-700 cursor-pointer touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400";
+/* ─── Rule box ─── */
+const RBox = ({ children }) => (
+  <div className="bg-amber-50 border border-amber-300 rounded-lg p-2 text-xs text-amber-900 font-bold text-center">
+    {children}
+  </div>
+);
 
-      return (
-        <div
-          ref={dragRef}
-          onPointerDown={handlePointerDown}
-          role="toolbar"
-          aria-label="Панель масштабирования"
-          style={{
-            position: 'fixed', top: position.top, left: position.left, right: position.right,
-            transition: isDragging ? 'none' : 'left 0.3s ease, right 0.3s ease, top 0.3s ease',
-            zIndex: 50,
-          }}
-          className={`cursor-grab active:cursor-grabbing touch-none bg-white/95 backdrop-blur shadow-md rounded-xl border border-emerald-200 p-1 flex items-center gap-1 transition-all ${isDragging ? 'opacity-100 shadow-xl scale-105' : 'opacity-90 hover:opacity-100'}`}
-          title="Удерживайте, чтобы переместить"
-        >
-          <button
-            aria-label="Уменьшить масштаб" tabIndex={0}
-            onClick={(e) => { e.stopPropagation(); if (!hasMoved.current) zoomOut(); }}
-            onKeyDown={makeKeyHandler(zoomOut)}
-            className={btnCls}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
+/* ─── Person row color ─── */
+const pColor = p => p===1?'bg-blue-50/40':p===2?'bg-amber-50/40':'bg-rose-50/40';
 
-          <span
-            aria-live="polite"
-            aria-label={`Масштаб ${Math.round(scale * 100)} процентов`}
-            className="flex items-center justify-center min-w-[3.5rem] font-bold text-emerald-800 text-sm select-none"
-          >
-            {Math.round(scale * 100)}%
-          </span>
+/* ══════════════════════════════════════════════════════
+   MAIN APP
+══════════════════════════════════════════════════════ */
+const App = () => {
+  const [scale, setScale] = useState(1);
+  const zoomIn    = useCallback(() => setScale(p => Math.min(parseFloat((p+.1).toFixed(1)), 1.5)), []);
+  const zoomOut   = useCallback(() => setScale(p => Math.max(parseFloat((p-.1).toFixed(1)), 0.4)), []);
+  const resetZoom = useCallback(() => setScale(1), []);
 
-          <button
-            aria-label="Увеличить масштаб" tabIndex={0}
-            onClick={(e) => { e.stopPropagation(); if (!hasMoved.current) zoomIn(); }}
-            onKeyDown={makeKeyHandler(zoomIn)}
-            className={btnCls}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
+  return (
+    <div className="relative h-screen bg-emerald-50 font-sans overflow-hidden flex flex-col">
+      <ZoomPanel scale={scale} zoomIn={zoomIn} zoomOut={zoomOut} resetZoom={resetZoom} />
+      <div className="flex-1 overflow-auto p-4 md:p-8 w-full">
+        <ScaleWrapper scale={scale}>
+          <div className="grammar-block w-full max-w-[980px] mx-auto min-w-[820px] bg-white rounded-[2.5rem] p-8 md:p-12 shadow-2xl border border-emerald-100 flex flex-col items-center gap-0 pb-32">
 
-          <div className="w-px bg-emerald-200 mx-1 h-6" aria-hidden="true"></div>
+{/* ══════ ЗАГОЛОВОК ══════ */}
+            <div className="inline-block bg-emerald-100/50 px-8 py-2 rounded-xl border border-emerald-200 shadow-sm z-10">
+              <h1 className="text-2xl font-bold text-emerald-900 uppercase tracking-wide">Справочник Арабской Грамматики</h1>
+              <p className="text-[10px] text-center text-emerald-600 mt-0.5">Уроки 1–13 · عبد الأحد</p>
+            </div>
 
-          <button
-            aria-label="Сбросить масштаб до 100%" tabIndex={0}
-            onClick={(e) => { e.stopPropagation(); if (!hasMoved.current) resetZoom(); }}
-            onKeyDown={makeKeyHandler(resetZoom)}
-            className={btnCls}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-          </button>
-        </div>
-      );
-    };
-
-    // ============================================================
-    // ГЛАВНЫЙ КОМПОНЕНТ
-    // ============================================================
-    const ArabicGrammarApp = () => {
-      const [scale, setScale] = useState(1);
-      const zoomIn    = useCallback(() => setScale(p => Math.min(parseFloat((p + 0.1).toFixed(1)), 1.5)), []);
-      const zoomOut   = useCallback(() => setScale(p => Math.max(parseFloat((p - 0.1).toFixed(1)), 0.4)), []);
-      const resetZoom = useCallback(() => setScale(1), []);
-
-      return (
-        <div className="relative h-screen bg-emerald-50 font-sans selection:bg-emerald-200 overflow-hidden flex flex-col">
-
-          <ZoomPanel scale={scale} zoomIn={zoomIn} zoomOut={zoomOut} resetZoom={resetZoom} />
-
-          <div className="flex-1 overflow-auto p-4 md:p-8 w-full relative">
-            <ScaleWrapper scale={scale}>
-
-              {/* ══════════════════════════════════════════════
-                  ЕДИНЫЙ ХОЛСТ — фиксированная ширина сохраняет
-                  каркас дерева. На узких экранах пользователь
-                  уменьшает масштаб через ZoomPanel.
-              ══════════════════════════════════════════════ */}
-              <div className="grammar-block w-full max-w-[900px] mx-auto bg-white rounded-[2.5rem] p-8 md:p-12 shadow-2xl border border-emerald-100 min-w-[800px] flex flex-col items-center gap-0 pb-32">
-
-                {/* ── ЗАГОЛОВОК ── */}
-                <div className="inline-block bg-emerald-100/50 px-8 py-2 rounded-xl border border-emerald-200 shadow-sm z-10">
-                  <h1 className="text-2xl font-bold text-emerald-900 uppercase tracking-wide">Арабская Грамматика</h1>
-                </div>
-
-                <div className="w-0.5 h-6 bg-emerald-400 z-0"></div>
-
-                {/* ── НАХЬВУ / САРФ: разветвление на 2 ── */}
-                <div className="w-[280px] h-4 border-t-2 border-x-2 border-emerald-400 rounded-t-md z-0"></div>
-                <div className="flex justify-center gap-6 relative w-full">
-                  <div className="flex flex-col items-center w-64 z-10">
-                    <div className="bg-white border border-emerald-300 rounded-lg p-3 shadow-sm w-full">
-                      <Ar className="text-3xl text-emerald-800 mb-1 block text-center">النَّحْوُ</Ar>
-                      <div className="text-xs text-gray-700 leading-tight text-center border-t border-emerald-100 pt-2">
-                        Наука, изучающая <span className="text-emerald-700 font-bold">окончание слов</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center w-64 z-10">
-                    <div className="bg-white border border-emerald-300 rounded-lg p-3 shadow-sm w-full">
-                      <Ar className="text-3xl text-emerald-800 mb-1 block text-center">الصَّرْفُ</Ar>
-                      <div className="text-xs text-gray-700 leading-tight text-center border-t border-emerald-100 pt-2">
-                        Наука, изучающая <span className="text-emerald-700 font-bold">основу слов</span>
-                      </div>
-                    </div>
+{/* ─── НАХЬВУ/САРФ ─── */}
+            <div className="w-0.5 h-6 bg-emerald-400 z-0"></div>
+            <div className="w-[300px] h-4 border-t-2 border-x-2 border-emerald-400 rounded-t-md z-0"></div>
+            <div className="flex justify-center gap-6 relative w-full z-10">
+              {[
+                { ar:'النَّحْوُ', def:'Изучает окончание слов' },
+                { ar:'الصَّرْفُ', def:'Изучает основу слов' },
+              ].map((s,i) => (
+                <div key={i} className="flex flex-col items-center w-64">
+                  <div className="bg-white border border-emerald-300 rounded-lg p-3 shadow-sm w-full">
+                    <Ar className="text-3xl text-emerald-800 block text-center mb-1">{s.ar}</Ar>
+                    <div className="text-xs text-gray-700 text-center border-t border-emerald-100 pt-2">{s.def}</div>
                   </div>
                 </div>
+              ))}
+            </div>
+            <div className="flex justify-center w-full z-0">
+              <svg width="304" height="24" viewBox="0 0 304 24" className="overflow-visible" aria-hidden="true">
+                <path d="M 2,0 Q 2,12 17,12 L 137,12 Q 152,12 152,24 Q 152,12 167,12 L 287,12 Q 302,12 302,0" fill="none" stroke="#34d399" strokeWidth="2"/>
+              </svg>
+            </div>
 
-                {/* SVG-слияние 2 веток → центр */}
-                <div className="flex justify-center w-full relative z-0">
-                  <svg width="284" height="24" viewBox="0 0 284 24" className="overflow-visible" aria-hidden="true">
-                    <path d="M 2,0 Q 2,12 17,12 L 127,12 Q 142,12 142,24 Q 142,12 157,12 L 267,12 Q 282,12 282,0" fill="none" stroke="#34d399" strokeWidth="2"/>
-                  </svg>
-                </div>
+{/* ══════ БЛОК 1: СЛОВО ══════ */}
+            <LBadge n={1} />
+            <div className="w-56 bg-emerald-600 text-white rounded-lg p-3 text-center shadow-md ring-4 ring-emerald-100 z-10">
+              <div className="text-[10px] font-bold uppercase text-emerald-200 mb-1">Определение</div>
+              <Ar className="text-2xl font-bold text-white block mb-1">الْكَلِمَةُ</Ar>
+              <div className="text-xs font-semibold">Слово</div>
+              <div className="text-[10px] text-emerald-200 mt-1 border-t border-emerald-500 pt-1">Высказывание, указывающее<br/>на единичное значение</div>
+            </div>
 
-                <div className="flex flex-col items-center z-10 bg-white/80 px-4 py-1 rounded-full">
-                  <Ar className="text-xl font-bold text-emerald-900">أَقْسَامُ الْكَلِمَةِ</Ar>
-                  <span className="text-sm font-normal text-emerald-700">Виды слов</span>
-                </div>
-
-                <div className="w-0.5 h-6 bg-emerald-400 z-0"></div>
-
-                {/* ── СЛОВО ── */}
-                <div className="w-56 bg-emerald-600 text-white rounded-lg p-3 text-center shadow-md ring-4 ring-emerald-100 z-10">
-                  <Ar className="text-2xl font-bold text-white mb-1 block">الْكَلِمَةُ</Ar>
-                  <div className="text-base font-semibold uppercase">Слово</div>
-                </div>
-
-                {/* Разветвление на 3 ветки */}
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
-                  <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-emerald-400"></div>
-                  <div className="absolute top-4 left-[calc(16.666%-8px)] w-0.5 h-4 bg-emerald-400"></div>
-                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
-                  <div className="absolute top-4 right-[calc(16.666%-8px)] w-0.5 h-4 bg-emerald-400"></div>
-                </div>
-
-                {/* ── ИМЯ / ГЛАГОЛ / ЧАСТИЦА ── */}
-                <div className="grid grid-cols-3 gap-6 w-full z-10">
-                  <div className="w-full bg-blue-50 border-t-2 border-blue-500 rounded-lg p-3 shadow-sm h-full flex flex-col">
-                    <div className="text-center mb-2">
-                      <Ar className="text-2xl text-blue-800 font-bold block">الِاسْمُ</Ar>
-                      <span className="text-[10px] font-bold text-gray-500 uppercase">Имя</span>
-                    </div>
-                    <div className="text-[11px] text-gray-700 bg-white p-2 rounded border border-blue-100 leading-tight flex-1">
-                      Имеет <strong>самостоятельный смысл</strong>, <strong>не связан</strong> со временем.
-                    </div>
-                  </div>
-                  <div className="w-full bg-amber-50 border-t-2 border-amber-500 rounded-lg p-3 shadow-sm h-full flex flex-col">
-                    <div className="text-center mb-2">
-                      <Ar className="text-2xl text-amber-800 font-bold block">الْفِعْلُ</Ar>
-                      <span className="text-[10px] font-bold text-gray-500 uppercase">Глагол</span>
-                    </div>
-                    <div className="text-[11px] text-gray-700 bg-white p-2 rounded border border-amber-100 leading-tight flex-1">
-                      Имеет <strong>самостоятельный смысл</strong>, <strong>обязательно связан</strong> со временем.
-                    </div>
-                  </div>
-                  <div className="w-full bg-slate-50 border-t-2 border-slate-500 rounded-lg p-3 shadow-sm h-full flex flex-col">
-                    <div className="text-center mb-2">
-                      <Ar className="text-2xl text-slate-800 font-bold block">الْحَرْفُ</Ar>
-                      <span className="text-[10px] font-bold text-gray-500 uppercase">Частица</span>
-                    </div>
-                    <div className="text-[11px] text-gray-700 bg-white p-2 rounded border border-slate-200 leading-tight flex-1">
-                      <strong>Не имеет полного смысла</strong>; появляется только в связке с <Ar>الاسم</Ar> или <Ar>الفعل</Ar>.
-                    </div>
-                  </div>
-                </div>
-
-                {/* Слияние 3 веток → центр */}
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-[calc(16.666%-8px)] w-0.5 h-4 bg-emerald-400"></div>
-                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
-                  <div className="absolute top-0 right-[calc(16.666%-8px)] w-0.5 h-4 bg-emerald-400"></div>
-                  <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-emerald-400"></div>
-                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
-                </div>
-
-                <ChainLink />
-
-                {/* ══════ БЛОК 1: И'РАБ И МАБНИ ══════ */}
-                <div className="inline-block bg-emerald-100/50 px-6 py-2 rounded-xl border border-emerald-200 shadow-sm z-10 text-center">
-                  <h2 className="text-2xl font-bold font-serif text-emerald-800">
-                    <Ar>الْإِعْرَابُ وَالْبِنَاءُ</Ar>
-                  </h2>
-                  <p className="text-[10px] font-normal uppercase text-emerald-600 tracking-widest">(СОСТОЯНИЕ СЛОВА)</p>
-                </div>
-
-                {/* Разветвление на 2 ветки */}
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-emerald-400"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] w-0.5 h-4 bg-emerald-400"></div>
-                  <div className="absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-emerald-400"></div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6 w-full z-10 items-stretch">
-                  <div className="bg-green-50 p-4 rounded-xl border border-green-300 flex flex-col shadow-sm h-full">
-                    <h3 className="text-xl font-bold text-green-900 font-serif mb-1">
-                      <Ar>الْمُعْرَبُ</Ar> <span className="text-xs font-sans text-green-700">(Изменяемое)</span>
-                    </h3>
-                    <p className="text-xs text-green-800 mb-3">Окончание слова меняется под воздействием факторов (падежей).</p>
-                    <div className="space-y-1.5 mt-auto">
-                      <div className="bg-white p-2 rounded text-xs flex justify-between items-center border border-green-100">
-                        <span className="text-gray-500"><Ar>الرَّفْعُ</Ar> (Им.п.)</span>
-                        <Ar className="text-base font-bold text-red-600">ــُـٌ</Ar>
-                      </div>
-                      <div className="bg-white p-2 rounded text-xs flex justify-between items-center border border-green-100">
-                        <span className="text-gray-500"><Ar>النَّصْبُ</Ar> (Вин.п.)</span>
-                        <Ar className="text-base font-bold text-red-600">ــَـً</Ar>
-                      </div>
-                      <div className="bg-white p-2 rounded text-xs flex justify-between items-center border border-green-100">
-                        <span className="text-gray-500"><Ar>الْجَرُّ</Ar> (Род.п. — только для Имён)</span>
-                        <Ar className="text-base font-bold text-red-600">ــِـٍ</Ar>
-                      </div>
-                      <div className="bg-white p-2 rounded text-xs flex justify-between items-center border border-green-100">
-                        <span className="text-gray-500"><Ar>الْجَزْمُ</Ar> (Усеч. — только для Глаголов)</span>
-                        <Ar className="text-base font-bold text-red-600">ــْ</Ar>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-red-50 p-4 rounded-xl border border-red-300 flex flex-col shadow-sm h-full">
-                    <h3 className="text-xl font-bold text-red-900 font-serif mb-1">
-                      <Ar>الْمَبْنِيُّ</Ar> <span className="text-xs font-sans text-red-700">(Неизменяемое)</span>
-                    </h3>
-                    <p className="text-xs text-red-800 mb-3">Окончание слова <strong>не меняется</strong>. Сюда относятся:</p>
-                    <ul className="text-xs list-disc list-inside mb-3 text-gray-700">
-                      <li>Все частицы (<Ar>الْحَرْفُ</Ar>)</li>
-                      <li>Глаголы: <Ar>الْمَاضِي</Ar> и <Ar>الْأَمْرُ</Ar></li>
-                      <li>6 видов имён (<Ar>الِاسْمُ</Ar>)</li>
-                    </ul>
-                    <div className="grid grid-cols-2 gap-1.5 mt-auto">
-                      {['Местоимения','Указательные','Относительные','Условия','Вопросительные','Обстоятельства'].map(w => (
-                        <div key={w} className="bg-white text-[10px] p-1.5 rounded border border-red-100 text-center text-gray-700 font-bold">{w}</div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Слияние 2 веток → центр */}
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-emerald-400"></div>
-                  <div className="absolute top-0 right-[calc(25%-6px)] w-0.5 h-4 bg-emerald-400"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-emerald-400"></div>
-                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
-                </div>
-
-                <ChainLink />
-
-                {/* ══════ БЛОК 2: РОД ══════ */}
-                <div className="inline-block bg-pink-50 px-6 py-2 rounded-xl border border-pink-200 shadow-sm z-10 text-center">
-                  <h2 className="text-2xl font-bold font-serif text-pink-800">
-                    <Ar>الْمُذَكَّرُ وَالْمُؤَنَّثُ</Ar>
-                  </h2>
-                  <p className="text-[10px] font-normal uppercase text-pink-600 tracking-widest">(РОД В АРАБСКОМ ЯЗЫКЕ)</p>
-                </div>
-
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-pink-400 -ml-[1px]"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-pink-400"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] w-0.5 h-4 bg-pink-400"></div>
-                  <div className="absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-pink-400"></div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6 w-full z-10 items-stretch">
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col shadow-sm h-full">
-                    <h3 className="font-bold text-blue-900 font-serif text-xl text-center mb-3">
-                      <Ar>الْمُذَكَّرُ</Ar> <span className="text-sm font-sans text-blue-700">(Мужской род)</span>
-                    </h3>
-                    <p className="text-xs text-blue-800 text-center mt-auto bg-white p-3 rounded-lg border border-blue-100">
-                      Основа всех слов.<br/>Не требует доказательств.
-                    </p>
-                  </div>
-                  <div className="bg-pink-50 border border-pink-200 rounded-xl p-4 flex flex-col shadow-sm h-full">
-                    <h3 className="font-bold text-pink-900 font-serif text-xl text-center mb-3">
-                      <Ar>الْمُؤَنَّثُ</Ar> <span className="text-sm font-sans text-pink-700">(Женский род)</span>
-                    </h3>
-                    <p className="text-[11px] text-pink-800 font-bold mb-1">Внешние признаки:</p>
-                    <div className="flex gap-2 mb-3">
-                      {[['ــَةٌ','سَيَّارَةٌ'],['ــَى','هُدَى'],['ــَاءُ','بَيْضَاءُ']].map(([suf, ex]) => (
-                        <div key={suf} className="bg-white p-2 rounded text-center flex-1 border border-pink-100">
-                          <Ar className="text-sm font-bold text-pink-700 block">{suf}</Ar>
-                          <Ar className="text-[9px] text-gray-500">({ex})</Ar>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-[11px] text-pink-800 font-bold mb-1 mt-auto">Без признаков (по смыслу):</p>
-                    <p className="text-[10px] text-gray-700 leading-tight bg-white p-2 rounded border border-pink-100">
-                      Женщины (<Ar>أُمٌّ</Ar>), племена (<Ar>رُوس</Ar>), города/страны (<Ar>مَكَّةُ</Ar>), парные части тела (<Ar>يَدٌ</Ar> — рука).
-                    </p>
-                  </div>
-                </div>
-
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-pink-400"></div>
-                  <div className="absolute top-0 right-[calc(25%-6px)] w-0.5 h-4 bg-pink-400"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-pink-400"></div>
-                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
-                </div>
-
-                <ChainLink />
-
-                {/* ══════ БЛОК 3: ЧИСЛО ══════ */}
-                <div className="inline-block bg-indigo-50 px-6 py-2 rounded-xl border border-indigo-200 shadow-sm z-10 text-center">
-                  <h2 className="text-2xl font-bold font-serif text-indigo-800">
-                    <Ar>عَدَدُ الِاسْمِ</Ar>
-                  </h2>
-                  <p className="text-[10px] font-normal uppercase text-indigo-600 tracking-widest">(ЧИСЛО ИМЕНИ)</p>
-                </div>
-
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-indigo-400 -ml-[1px]"></div>
-                  <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-indigo-400"></div>
-                  <div className="absolute top-4 left-[calc(16.666%-8px)] w-0.5 h-4 bg-indigo-400"></div>
-                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-indigo-400 -ml-[1px]"></div>
-                  <div className="absolute top-4 right-[calc(16.666%-8px)] w-0.5 h-4 bg-indigo-400"></div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-6 w-full z-10 items-stretch">
-                  <div className="bg-indigo-50 border-t-2 border-indigo-400 rounded-xl p-3 text-center flex flex-col justify-center shadow-sm h-full">
-                    <Ar className="font-bold text-xl text-indigo-900">الْمُفْرَدُ</Ar>
-                    <div className="text-[10px] text-indigo-700 mb-2">Единственное (1)</div>
-                    <div className="bg-white p-2 rounded mt-2 border border-indigo-100"><Ar>طَالِبٌ</Ar></div>
-                  </div>
-                  <div className="bg-indigo-50 border-t-2 border-indigo-500 rounded-xl p-3 text-center flex flex-col justify-center shadow-sm h-full">
-                    <Ar className="font-bold text-xl text-indigo-900">الْمُثَنَّى</Ar>
-                    <div className="text-[10px] text-indigo-700 mb-2">Двойственное (2)</div>
-                    <div className="bg-white text-sm p-1.5 rounded mb-1.5 mt-2 border border-indigo-100">
-                      <Ar>طَالِبَانِ</Ar> <span className="text-red-500 text-[10px]">(رَفْع)</span>
-                    </div>
-                    <div className="bg-white text-sm p-1.5 rounded border border-indigo-100">
-                      <Ar>طَالِبَيْنِ</Ar> <span className="text-red-500 text-[10px]">(نَصْب/جَرّ)</span>
-                    </div>
-                  </div>
-                  <div className="bg-indigo-50 border-t-2 border-indigo-600 rounded-xl p-3 flex flex-col items-center shadow-sm h-full">
-                    <Ar className="font-bold text-xl text-indigo-900">الْجَمْعُ</Ar>
-                    <div className="text-[10px] text-indigo-700 mb-2">Множественное (3+)</div>
-                    <div className="w-full space-y-1.5 text-left mt-auto">
-                      {[
-                        { color: 'blue',   label: 'Правильное мужское',     ar: 'مُسْلِمُونَ / مُسْلِمِينَ' },
-                        { color: 'pink',   label: 'Правильное женское',     ar: 'سَيَّارَاتٌ' },
-                        { color: 'orange', label: 'Ломаное (التَّكْسِيرُ)', ar: 'كُتُبٌ (كِتَابٌ)' },
-                      ].map(row => (
-                        <div key={row.label} className="bg-white p-1.5 rounded border border-indigo-100">
-                          <span className={`text-[9px] font-bold text-${row.color}-600 block mb-0.5`}>{row.label}</span>
-                          <Ar className="text-xs">{row.ar}</Ar>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-[calc(16.666%-8px)] w-0.5 h-4 bg-indigo-400"></div>
-                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-indigo-400 -ml-[1px]"></div>
-                  <div className="absolute top-0 right-[calc(16.666%-8px)] w-0.5 h-4 bg-indigo-400"></div>
-                  <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-indigo-400"></div>
-                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
-                </div>
-
-                <ChainLink />
-
-                {/* ══════ БЛОК 4: ОПРЕДЕЛЕННОСТЬ ══════ */}
-                <div className="inline-block bg-amber-50 px-6 py-2 rounded-xl border border-amber-200 shadow-sm z-10 text-center">
-                  <h2 className="text-2xl font-bold font-serif text-amber-800">
-                    <Ar>النَّكِرَةُ وَالمَعْرِفَةُ</Ar>
-                  </h2>
-                  <p className="text-[10px] font-normal uppercase text-amber-600 tracking-widest">(ОПРЕДЕЛЁННОСТЬ)</p>
-                </div>
-
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-amber-400 -ml-[1px]"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-amber-400"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] w-0.5 h-4 bg-amber-400"></div>
-                  <div className="absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-amber-400"></div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6 w-full z-10 items-stretch">
-                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col shadow-sm h-full">
-                    <h3 className="font-bold font-serif text-gray-800 text-xl text-center mb-1">
-                      <Ar>النَّكِرَةُ</Ar> <span className="text-xs font-sans text-gray-600">(Неопределённое)</span>
-                    </h3>
-                    <p className="text-xs text-center text-gray-600 mb-4">Указывает на что-то общее, неизвестное.</p>
-                    <div className="bg-white text-center p-3 rounded-lg shadow-sm text-lg mt-auto border border-gray-100">
-                      <Ar className="text-lg">قَلَمٌ</Ar>
-                      <span className="text-[11px] font-sans text-gray-500 block mt-1">(Какая-то ручка)</span>
-                    </div>
-                  </div>
-                  <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 flex flex-col shadow-sm h-full">
-                    <h3 className="font-bold font-serif text-amber-900 text-xl text-center mb-1">
-                      <Ar>المَعْرِفَةُ</Ar> <span className="text-xs font-sans text-amber-700">(Определённое)</span>
-                    </h3>
-                    <p className="text-xs text-center text-amber-700 mb-4">Указывает на конкретное. 6 видов:</p>
-                    <div className="grid grid-cols-2 gap-2 text-[10px] mt-auto font-bold">
-                      {[
-                        ['1. С артиклем','القَلَمُ'],
-                        ['2. Местоимения','هُوَ'],
-                        ['3. Имена собств.','مَكَّةُ'],
-                        ['4. Указательные','هَذَا'],
-                        ['5. Относительные','الَّذِي'],
-                        ['6. Идафа','كِتَابُكَ'],
-                      ].map(([label, ar]) => (
-                        <div key={label} className="bg-white p-2 rounded text-center border border-amber-100 shadow-sm text-gray-700">
-                          {label} (<Ar>{ar}</Ar>)
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-amber-400"></div>
-                  <div className="absolute top-0 right-[calc(25%-6px)] w-0.5 h-4 bg-amber-400"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-amber-400"></div>
-                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
-                </div>
-
-                <ChainLink />
-
-                {/* ══════ БЛОК 5: МЕСТОИМЕНИЯ ══════ */}
-                <div className="inline-block bg-purple-50 px-6 py-2 rounded-xl border border-purple-200 shadow-sm z-10 text-center">
-                  <h2 className="text-2xl font-bold font-serif text-purple-800">
-                    <Ar>الضَّمَائِرُ</Ar>
-                  </h2>
-                  <p className="text-[10px] font-normal uppercase text-purple-600 tracking-widest">(МЕСТОИМЕНИЯ)</p>
-                </div>
-
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-purple-400 -ml-[1px]"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-purple-400"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] w-0.5 h-4 bg-purple-400"></div>
-                  <div className="absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-purple-400"></div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6 w-full z-10">
-                  <div className="bg-purple-50 p-3 rounded-xl text-center border border-purple-200 shadow-sm">
-                    <h3 className="font-bold font-serif text-purple-900 text-lg"><Ar>الْمُنْفَصِلَةُ</Ar></h3>
-                    <p className="text-xs text-purple-700 mt-1">Раздельные (<Ar>أَنَا</Ar>, <Ar>هُوَ</Ar>)</p>
-                  </div>
-                  <div className="bg-fuchsia-50 p-3 rounded-xl text-center border border-fuchsia-200 shadow-sm">
-                    <h3 className="font-bold font-serif text-fuchsia-900 text-lg"><Ar>الْمُتَّصِلَةُ</Ar></h3>
-                    <p className="text-xs text-fuchsia-700 mt-1">Слитные (<Ar>كِتَابِي</Ar>, <Ar>فِيهِ</Ar>)</p>
-                  </div>
-                </div>
-
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-purple-400"></div>
-                  <div className="absolute top-0 right-[calc(25%-6px)] w-0.5 h-4 bg-purple-400"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-purple-400"></div>
-                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-purple-400 -ml-[1px]"></div>
-                </div>
-
-                {/* Разветвление на 3 лица */}
-                <div className="relative w-full h-8 z-0 -mt-4">
-                  <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-purple-400"></div>
-                  <div className="absolute top-4 left-[calc(16.666%-8px)] w-0.5 h-4 bg-purple-400"></div>
-                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-purple-400 -ml-[1px]"></div>
-                  <div className="absolute top-4 right-[calc(16.666%-8px)] w-0.5 h-4 bg-purple-400"></div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-6 w-full z-10 items-stretch">
-                  {PRONOUNS.map((p, i) => (
-                    <div key={i} className="bg-gray-50 border border-gray-200 rounded-xl p-3 shadow-sm flex flex-col h-full">
-                      <div className="text-xs font-bold text-gray-500 mb-3 text-center border-b border-gray-200 pb-1.5">{p.face}</div>
-                      <div className="space-y-1.5 mt-auto">
-                        {p.items.map((it, idx) => (
-                          <div key={idx} className="flex justify-between items-center bg-white p-1.5 rounded border border-gray-100">
-                            <span className="w-12 text-gray-400 text-[10px]">{it.ru}</span>
-                            <Ar className="font-bold text-sm text-purple-800">{it.m}</Ar>
-                            <span className="text-gray-200" aria-hidden="true">|</span>
-                            <Ar className="font-bold text-sm text-fuchsia-800">{it.s}</Ar>
-                          </div>
-                        ))}
-                      </div>
+            <div className="w-full z-10 mt-2 mb-2">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                <div className="text-[10px] font-bold text-emerald-700 uppercase mb-2 text-center">Примеры слов (الكلمة)</div>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    {ar:'مُحَمَّدٌ',ru:'Мухаммад',type:'الاسم'},
+                    {ar:'مَسْجِدٌ',ru:'мечеть',type:'الاسم'},
+                    {ar:'ذَهَبَ',ru:'ушел',type:'الفعل'},
+                    {ar:'مِنْ',ru:'из',type:'الحرف'},
+                  ].map((e,i) => (
+                    <div key={i} className="bg-white rounded-lg p-2 text-center border border-emerald-100 shadow-sm">
+                      <Ar className="text-xl font-bold text-gray-800 block">{e.ar}</Ar>
+                      <span className="text-[10px] text-gray-500 block">{e.ru}</span>
+                      <Ar className="text-[9px] text-emerald-600 font-bold">{e.type}</Ar>
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
 
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-[calc(16.666%-8px)] w-0.5 h-4 bg-purple-400"></div>
-                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-purple-400 -ml-[1px]"></div>
-                  <div className="absolute top-0 right-[calc(16.666%-8px)] w-0.5 h-4 bg-purple-400"></div>
-                  <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-purple-400"></div>
-                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
+            <V3down c="emerald" />
+            <div className="grid grid-cols-3 gap-5 w-full z-10">
+              {/* ── ИМЯ ── */}
+              <div className="bg-blue-50 border-t-2 border-blue-500 rounded-xl p-4 shadow-sm flex flex-col">
+                <LBadge n={1} />
+                <Ar className="text-2xl text-blue-800 font-bold block text-center mb-1">الِاسْمُ</Ar>
+                <div className="text-[10px] font-bold text-blue-600 text-center uppercase mb-3">Имя</div>
+                <IBox color="blue"><strong>Определение:</strong> Слово, имеющее смысл, но <strong>не связанное</strong> со временем.</IBox>
+                <div className="text-[10px] font-bold text-blue-700 mt-3 mb-1">Примеры:</div>
+                <div className="space-y-1 bg-white rounded-lg p-2 border border-blue-100">
+                  <Ex ar="مُحَمَّدٌ" ru="Мухаммад" />
+                  <Ex ar="بَيْتٌ" ru="Дом" />
+                  <Ex ar="كِتَابٌ" ru="Книга" />
+                  <Ex ar="مَسْجِدٌ" ru="Мечеть" />
                 </div>
-
-                <ChainLink />
-
-                {/* ══════ БЛОК 6: ПРЕДЛОЖЕНИЯ ══════ */}
-                <div className="inline-block bg-teal-50 px-6 py-2 rounded-xl border border-teal-200 shadow-sm z-10 text-center">
-                  <h2 className="text-2xl font-bold font-serif text-teal-800">
-                    <Ar>أَقْسَامُ الْجُمْلَةِ</Ar>
-                  </h2>
-                  <p className="text-[10px] font-normal uppercase text-teal-600 tracking-widest">(ВИДЫ ПРЕДЛОЖЕНИЙ)</p>
+                <div className="mt-3">
+                  <div className="text-[10px] font-bold text-blue-700 mb-1">Признаки:</div>
+                  <div className="bg-blue-100 rounded p-2 text-[10px] text-blue-900 space-y-1">
+                    <div>✓ Принимает артикль <Ar className="font-bold">ال</Ar></div>
+                    <div>✓ Принимает танвин <Ar className="font-bold">ـٌ ـً ـٍ</Ar></div>
+                    <div>✗ Никогда не оканчивается на <Ar className="font-bold">ـْ</Ar></div>
+                  </div>
                 </div>
+              </div>
 
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-teal-400 -ml-[1px]"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-teal-400"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] w-0.5 h-4 bg-teal-400"></div>
-                  <div className="absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-teal-400"></div>
+              {/* ── ГЛАГОЛ ── */}
+              <div className="bg-amber-50 border-t-2 border-amber-500 rounded-xl p-4 shadow-sm flex flex-col">
+                <LBadge n={1} />
+                <Ar className="text-2xl text-amber-800 font-bold block text-center mb-1">الْفِعْلُ</Ar>
+                <div className="text-[10px] font-bold text-amber-600 text-center uppercase mb-3">Глагол</div>
+                <IBox color="amber"><strong>Определение:</strong> Слово, имеющее смысл и <strong>обязательно связанное</strong> со временем.</IBox>
+                <div className="text-[10px] font-bold text-amber-700 mt-3 mb-1">3 времени:</div>
+                <div className="space-y-1.5">
+                  {[
+                    {ar:'ذَهَبَ',ru:'ушел',t:'الْمَاضِي — Прошедшее',tc:'orange'},
+                    {ar:'يَذْهَبُ',ru:'идет',t:'الْمُضَارِعُ — Наст./Буд.',tc:'blue'},
+                    {ar:'اِذْهَبْ',ru:'иди!',t:'الْأَمْرُ — Приказ',tc:'red'},
+                  ].map((e,i) => (
+                    <div key={i} className="bg-white rounded-lg p-2 border border-amber-100 flex items-center justify-between">
+                      <div>
+                        <Ar className="text-base font-bold text-gray-800">{e.ar}</Ar>
+                        <span className="text-[10px] text-gray-500 ml-1">— {e.ru}</span>
+                      </div>
+                      <span className={`text-[9px] font-bold text-${e.tc}-600`}>{e.t}</span>
+                    </div>
+                  ))}
                 </div>
+                <div className="mt-3">
+                  <div className="bg-amber-100 rounded p-2 text-[10px] text-amber-900 space-y-1">
+                    <div>✗ Никогда не оканчивается на <Ar className="font-bold">ـِ / ـٍ</Ar></div>
+                    <div>✓ <Ar>الماضي</Ar> и <Ar>الأمر</Ar> — всегда <Ar className="font-bold">مَبْنِيّ</Ar></div>
+                  </div>
+                </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-6 w-full z-10 items-stretch">
-                  <div className="bg-teal-50 p-4 rounded-xl border border-teal-200 flex flex-col shadow-sm h-full">
-                    <h3 className="font-bold font-serif text-teal-900 text-xl text-center mb-1">
-                      <Ar>الْجُمْلَةُ الِاسْمِيَّةُ</Ar>
-                    </h3>
-                    <p className="text-xs text-center text-teal-700 mb-4">Именное предложение (начинается с Имени). Состоит из двух главных частей:</p>
-                    <div className="flex gap-3 mt-auto">
-                      {[['الْمُبْتَدَأُ','Подлежащее'],['الْخَبَرُ','Сказуемое']].map(([ar, ru]) => (
-                        <div key={ar} className="bg-white p-3 rounded-lg flex-1 text-center border border-teal-100 shadow-sm">
-                          <Ar className="font-bold text-teal-800 text-lg">{ar}</Ar>
-                          <span className="text-[10px] text-gray-500 block mt-1">{ru}</span>
+              {/* ── ЧАСТИЦА ── */}
+              <div className="bg-slate-50 border-t-2 border-slate-500 rounded-xl p-4 shadow-sm flex flex-col">
+                <LBadge n={1} />
+                <Ar className="text-2xl text-slate-800 font-bold block text-center mb-1">الْحَرْفُ</Ar>
+                <div className="text-[10px] font-bold text-slate-600 text-center uppercase mb-3">Частица</div>
+                <IBox color="slate"><strong>Определение:</strong> Слово <strong>без полного смысла</strong> вне предложения, не связанное со временем.</IBox>
+                <div className="text-[10px] font-bold text-slate-700 mt-3 mb-1">Примеры:</div>
+                <div className="bg-white rounded-lg p-2 border border-slate-200 space-y-1">
+                  <Ex ar="فِي" ru="в" />
+                  <Ex ar="مِنْ" ru="из" />
+                  <Ex ar="عَلَى" ru="на" />
+                </div>
+                <div className="mt-2 bg-slate-100 rounded p-2 text-[10px] text-slate-900">
+                  <strong>Пример в предложении:</strong><br/>
+                  <Ar className="text-sm">مُحَمَّدٌ فِي الْبَيْتِ</Ar><br/>
+                  Мухаммад в доме — здесь <Ar>فِي</Ar> обрела смысл.
+                </div>
+                <div className="mt-2">
+                  <div className="bg-slate-100 rounded p-2 text-[10px] text-slate-900">
+                    ✓ Все частицы — всегда <Ar className="font-bold">مَبْنِيّ</Ar>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+{/* ══════ БЛОК 2: الإعراب والبناء ══════ */}
+            <V3up tc="emerald" bc="emerald" />
+            <ChainLink />
+            <BHead ar="الْإِعْرَابُ وَالْبِنَاءُ" ru="ИЗМЕНЯЕМОСТЬ / НЕИЗМЕНЯЕМОСТЬ" bg="emerald" lesson={2} />
+
+            <V2down c="emerald" />
+            <div className="grid grid-cols-2 gap-5 w-full z-10 items-stretch">
+              {/* الإعراب */}
+              <div className="bg-green-50 p-4 rounded-xl border border-green-300 flex flex-col shadow-sm">
+                <h3 className="text-xl font-bold text-green-900 font-serif mb-1">
+                  <Ar>الْإِعْرَابُ</Ar> <span className="text-xs font-sans text-green-700">(Изменяемость/Склонение)</span>
+                </h3>
+                <p className="text-xs text-green-800 mb-3">Изменение окончания слов из-за различных факторов, влияющих на них.</p>
+                <div className="text-[10px] font-bold text-green-700 mb-2">Примеры — одно слово в трёх падежах:</div>
+                <div className="space-y-2">
+                  {[
+                    {ar:'هَذَا بَيْتٌ', ru:'Это дом', note:'ـٌ — خَبَر (сказуемое)'},
+                    {ar:'رَأَيْتُ بَيْتًا', ru:'Я увидел дом', note:'ـً — مَفْعُولٌ بِهِ (объект)'},
+                    {ar:'مَرَرْتُ بِبَيْتٍ', ru:'Прошёл мимо дома', note:'ـٍ — اسم после предлога'},
+                  ].map((e,i) => (
+                    <div key={i} className="bg-white p-2 rounded-lg border border-green-100">
+                      <div className="flex items-baseline gap-2">
+                        <Ar className="text-base font-bold text-gray-800">{e.ar}</Ar>
+                        <span className="text-[10px] text-gray-500">— {e.ru}</span>
+                      </div>
+                      <span className="text-[9px] text-green-600 font-bold">{e.note}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <div className="text-[10px] font-bold text-green-700 mb-2">Основной — الْمُعْرَب. Падежи:</div>
+                  <div className="space-y-1">
+                    {[
+                      {name:'الرَّفْعُ',ru:'Им.п.',sign:'ـُ / ـٌ',who:'اسم + فعل مضارع'},
+                      {name:'النَّصْبُ',ru:'Вин.п.',sign:'ـَ / ـً',who:'اسم + فعل مضارع'},
+                      {name:'الْجَرُّ',ru:'Род.п.',sign:'ـِ / ـٍ',who:'только اسم'},
+                      {name:'الْجَزْمُ',ru:'Усечение',sign:'ـْ',who:'только فعل مضارع'},
+                    ].map((r,i) => (
+                      <div key={i} className="bg-white p-1.5 rounded flex justify-between items-center border border-green-100">
+                        <span className="text-[10px] text-gray-600"><Ar className="font-bold">{r.name}</Ar> — {r.ru}</span>
+                        <Ar className="text-sm font-bold text-red-600">{r.sign}</Ar>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* البناء */}
+              <div className="bg-red-50 p-4 rounded-xl border border-red-300 flex flex-col shadow-sm">
+                <h3 className="text-xl font-bold text-red-900 font-serif mb-1">
+                  <Ar>الْبِنَاءُ</Ar> <span className="text-xs font-sans text-red-700">(Неизменяемость)</span>
+                </h3>
+                <p className="text-xs text-red-800 mb-3">Окончание <strong>не меняется</strong>, несмотря на любые факторы.</p>
+                <div className="text-[10px] font-bold text-red-700 mb-2">Пример — هَؤُلَاءِ всегда с كسرة:</div>
+                <div className="space-y-1.5 mb-3">
+                  {[
+                    {ar:'جَاءَ هَؤُلَاءِ',ru:'Пришли эти'},
+                    {ar:'رَأَيْتُ هَؤُلَاءِ',ru:'Я увидел этих'},
+                    {ar:'مَرَرْتُ بِهَؤُلَاءِ',ru:'Прошёл мимо этих'},
+                  ].map((e,i) => (
+                    <div key={i} className="bg-white p-2 rounded border border-red-100">
+                      <Ex ar={e.ar} ru={e.ru} />
+                    </div>
+                  ))}
+                </div>
+                <div className="text-[10px] font-bold text-red-700 mb-2">Кто является مَبْنِيّ:</div>
+                <div className="space-y-1.5">
+                  <div className="bg-white p-2 rounded border border-red-100">
+                    <span className="text-[10px] font-bold text-red-600">١. الْحَرْف</span>
+                    <div className="text-[10px] text-gray-600">Все частицы — всегда مَبْنِيّ</div>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-red-100">
+                    <span className="text-[10px] font-bold text-red-600">٢. الْفِعْل</span>
+                    <div className="text-[10px] text-gray-600"><Ar>الماضي</Ar> и <Ar>الأمر</Ar> — всегда مَبْنِيّ</div>
+                    <div className="text-[10px] text-gray-500 mt-1">Примеры: <Ar>جَاءَ قَرَأَ ذَهَبَ أَكَلَ كُلْ اِذْهَبْ اُخْرُجْ</Ar></div>
+                  </div>
+                  <div className="bg-white p-2 rounded border border-red-100">
+                    <span className="text-[10px] font-bold text-red-600">٣. الِاسْم — 6 основных видов:</span>
+                    <div className="grid grid-cols-2 gap-1 mt-1">
+                      {[
+                        ['١. الضَّمَائِر','Местоимения','أَنْتَ — كِتَابُكَ'],
+                        ['٢. أَسْم. Указ.','Указательные','هَذَا — هَذِهِ'],
+                        ['٣. أَسْم. Отн.','Относительные','الَّذِي — الَّتِي'],
+                        ['٤. أَسْم. Усл.','Условия','مَنْ — أَيْنَ'],
+                        ['٥. بَعْض ظُرُوف','Обстоятельства','أَمْسِ — حَيْثُ'],
+                        ['٦. أَسْم. Вопр.','Вопросительные','مَتَى — كَيْفَ'],
+                      ].map((r,i) => (
+                        <div key={i} className="bg-red-50 rounded p-1 text-[9px]">
+                          <div className="font-bold text-red-700">{r[0]}</div>
+                          <div className="text-gray-600">{r[1]}</div>
+                          <Ar className="text-[9px] text-gray-500">{r[2]}</Ar>
                         </div>
                       ))}
                     </div>
-                    <div className="text-[10px] text-center text-red-500 mt-3 font-bold bg-white/50 py-1 rounded">
-                      Оба всегда в падеже <Ar>الرَّفْع</Ar>!
-                    </div>
-                  </div>
-                  <div className="bg-cyan-50 p-4 rounded-xl border border-cyan-200 flex flex-col shadow-sm h-full">
-                    <h3 className="font-bold font-serif text-cyan-900 text-xl text-center mb-1">
-                      <Ar>الْجُمْلَةُ الْفِعْلِيَّةُ</Ar>
-                    </h3>
-                    <p className="text-xs text-center text-cyan-700 mb-4">Глагольное предложение (начинается с Глагола).</p>
-                    <div className="bg-white p-4 rounded-lg text-center border border-cyan-100 font-serif text-2xl mt-auto shadow-sm">
-                      <Ar className="font-bold text-cyan-800 text-2xl">ذَهَبَ</Ar>{' '}
-                      <Ar className="text-2xl">مُحَمَّدٌ</Ar>
-                      <div className="text-xs font-sans text-gray-500 mt-2">Ушел Мухаммад</div>
-                    </div>
                   </div>
                 </div>
-
-                <div className="relative w-full h-8 z-0">
-                  <div className="absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-teal-400"></div>
-                  <div className="absolute top-0 right-[calc(25%-6px)] w-0.5 h-4 bg-teal-400"></div>
-                  <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-teal-400"></div>
-                  <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-emerald-400 -ml-[1px]"></div>
-                </div>
-
-                <ChainLink />
-
-                {/* ══════ БЛОК 7: ГЛАГОЛЫ (ТАБЛИЦА) ══════ */}
-                <div className="inline-block bg-orange-50 px-6 py-2 rounded-xl border border-orange-200 shadow-sm z-10 text-center relative">
-                  <h2 className="text-2xl font-bold font-serif text-orange-800">
-                    <Ar>الْأَفْعَالُ</Ar>
-                  </h2>
-                  <p className="text-[10px] font-normal uppercase text-orange-600 tracking-widest">(СПРЯЖЕНИЕ ГЛАГОЛОВ)</p>
-                </div>
-
-                <div className="w-0.5 h-8 bg-emerald-400 relative z-0"></div>
-
-                <div className="overflow-hidden rounded-xl border-2 border-emerald-400 shadow-md relative z-20 w-full">
-                  <table className="w-full text-center text-sm" role="table">
-                    <caption className="sr-only">Спряжение глагола ذَهَبَ (идти) по лицам и временам</caption>
-                    <thead className="bg-orange-100 text-orange-900 font-bold text-xs uppercase">
-                      <tr>
-                        <th scope="col" className="p-3 border-b-2 border-r border-orange-200">Лицо / Местоимение</th>
-                        <th scope="col" className="p-3 border-b-2 border-r border-orange-200"><Ar>الْمَاضِي</Ar> (Прошедшее)</th>
-                        <th scope="col" className="p-3 border-b-2 border-r border-orange-200"><Ar>الْمُضَارِعُ</Ar> (Наст./Буд.)</th>
-                        <th scope="col" className="p-3 border-b-2 border-orange-200"><Ar>الْأَمْرُ</Ar> (Приказ)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white">
-                      {VERBS.map((v, i) => (
-                        <tr key={i} className="border-b border-orange-50 hover:bg-orange-50/50 transition-colors">
-                          <td className="p-2.5 border-r border-orange-100 text-xs font-bold text-gray-600">{v.face}</td>
-                          <td className="p-2.5 border-r border-orange-100 font-bold text-orange-800"><Ar className="text-lg">{v.madi}</Ar></td>
-                          <td className="p-2.5 border-r border-orange-100 font-bold text-blue-800"><Ar className="text-lg">{v.mudari}</Ar></td>
-                          <td className="p-2.5 font-bold text-red-800"><Ar className="text-lg">{v.amr}</Ar></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
               </div>
-            </ScaleWrapper>
-          </div>
-        </div>
-      );
-    };
+            </div>
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<ArabicGrammarApp />);
-  </script>
+{/* ══════ БЛОК 3: РАЗБОР (إعراب) ══════ */}
+            <V2up tc="emerald" bc="emerald" />
+            <ChainLink />
+            <BHead ar="الْإِعْرَابُ — التَّطْبِيقُ" ru="ГРАММАТИЧЕСКИЙ РАЗБОР" bg="violet" lesson={3} />
+            <div className="w-0.5 h-4 bg-emerald-400 z-0"></div>
+            <div className="w-full z-10 space-y-3">
+              <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
+                <div className="text-xs font-bold text-violet-800 mb-3">Алгоритм разбора слова:</div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-white rounded-lg p-3 border border-violet-100">
+                    <div className="font-bold text-violet-700 mb-2">Шаг 1 — Вид слова</div>
+                    <div className="text-gray-600 space-y-1">
+                      <div>• Есть танвин / <Ar>ال</Ar> / нет <Ar>ـْ</Ar> → <Ar className="font-bold">اسم</Ar></div>
+                      <div>• Связано со временем, нет <Ar>ـِ</Ar> → <Ar className="font-bold">فعل</Ar></div>
+                      <div>• Предлог / союз → <Ar className="font-bold">حرف</Ar></div>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-violet-100">
+                    <div className="font-bold text-violet-700 mb-2">Шаг 2 — مُعْرَب или مَبْنِيّ?</div>
+                    <div className="text-gray-600 space-y-1">
+                      <div>• <Ar>اسم</Ar>: основа — <Ar className="font-bold">مُعْرَب</Ar>, кроме 6 видов</div>
+                      <div>• <Ar>فعل مضارع</Ar>: основа — <Ar className="font-bold">مُعْرَب</Ar>, кроме 2 случаев</div>
+                      <div>• <Ar>ماضي / أمر / حرف</Ar>: всегда <Ar className="font-bold">مَبْنِيّ</Ar></div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 bg-white rounded-lg p-3 border border-violet-100 text-xs">
+                  <div className="font-bold text-violet-700 mb-1">Шаг 3 — Состояние (только для مُعْرَب):</div>
+                  <div className="grid grid-cols-4 gap-1">
+                    {[
+                      {s:'الرَّفْع',sign:'ـُ/ـٌ',note:'基本'},
+                      {s:'النَّصْب',sign:'ـَ/ـً',note:''},
+                      {s:'الْجَرّ',sign:'ـِ/ـٍ',note:'только اسم'},
+                      {s:'الْجَزْم',sign:'ـْ',note:'только فعل مضارع'},
+                    ].map((r,i) => (
+                      <div key={i} className="bg-violet-50 rounded p-1.5 text-center">
+                        <Ar className="text-xs font-bold text-violet-800 block">{r.s}</Ar>
+                        <Ar className="text-base font-bold text-red-600 block">{r.sign}</Ar>
+                        {r.note && <span className="text-[8px] text-gray-500">{r.note}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-xs font-bold text-violet-700 text-center">Разбор 5 примеров:</div>
+              <div className="space-y-2">
+                {[
+                  {
+                    word:'بَيْتٌ', ru:'Дом',
+                    step1:'Танвин ـٌ → это اسم',
+                    step2:'Не входит в 6 видов مبني → مُعْرَب',
+                    step3:'Оканчивается на ـٌ → الرَّفْع',
+                  },
+                  {
+                    word:'يَذْهَبُ', ru:'Идёт',
+                    step1:'Смысл + время → فِعْل مُضَارِع',
+                    step2:'Не из 2 исключений → مُعْرَب',
+                    step3:'Оканчивается на ـُ → الرَّفْع',
+                  },
+                  {
+                    word:'مُحَمَّدًا', ru:'Мухаммада',
+                    step1:'Танвин ـً → это اسم',
+                    step2:'Не входит в 6 видов مبني → مُعْرَب',
+                    step3:'Оканчивается на ـً → النَّصْب',
+                  },
+                  {
+                    word:'كِتَابٍ', ru:'Книги (Р.п.)',
+                    step1:'Танвин ـٍ → это اسم',
+                    step2:'Не входит в 6 видов مبني → مُعْرَب',
+                    step3:'Оканчивается на ـٍ → الْجَرّ',
+                  },
+                  {
+                    word:'لَمْ يَذْهَبْ', ru:'Не пошёл',
+                    step1:'Смысл + время → فعل مضارع (у اسم не бывает ـْ на конце)',
+                    step2:'Не из 2 исключений → مُعْرَب (но ـْ поставлено частицей لَمْ)',
+                    step3:'Оканчивается на ـْ → الْجَزْم',
+                  },
+                ].map((e,i) => (
+                  <div key={i} className="bg-white border border-violet-200 rounded-xl p-3">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Ar className="text-xl font-bold text-violet-900">{e.word}</Ar>
+                      <span className="text-sm text-gray-600">— {e.ru}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-[10px]">
+                      <div className="bg-blue-50 rounded p-1.5"><span className="font-bold text-blue-700">Вид:</span> {e.step1}</div>
+                      <div className="bg-amber-50 rounded p-1.5"><span className="font-bold text-amber-700">Тип:</span> {e.step2}</div>
+                      <div className="bg-green-50 rounded p-1.5"><span className="font-bold text-green-700">Состояние:</span> {e.step3}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+{/* ══════ БЛОК 4: РОД ══════ */}
+            <div className="w-0.5 h-8 bg-emerald-400 z-0"></div>
+            <BHead ar="الْمُذَكَّرُ وَالْمُؤَنَّثُ" ru="РОД В АРАБСКОМ ЯЗЫКЕ" bg="pink" lesson={4} />
+            <V2down c="pink" />
+            <div className="grid grid-cols-2 gap-5 w-full z-10 items-stretch">
+              {/* Мужской */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col shadow-sm">
+                <h3 className="font-bold text-blue-900 font-serif text-xl text-center mb-2">
+                  <Ar>الْمُذَكَّرُ</Ar> <span className="text-sm font-sans text-blue-700">(Мужской род)</span>
+                </h3>
+                <IBox color="blue">Основа всех слов в арабском языке. Не требует доказательств.</IBox>
+                <div className="mt-3 space-y-1">
+                  <div className="text-[10px] font-bold text-blue-700 mb-1">Непарные части тела (мужской род):</div>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[['أَنْفٌ','нос'],['رَأْسٌ','голова'],['ظَهْرٌ','спина']].map(([a,r],i) => (
+                      <div key={i} className="bg-white rounded p-1.5 text-center border border-blue-100">
+                        <Ar className="text-sm font-bold text-blue-800 block">{a}</Ar>
+                        <span className="text-[9px] text-gray-500">{r}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Женский */}
+              <div className="bg-pink-50 border border-pink-200 rounded-xl p-4 flex flex-col shadow-sm">
+                <h3 className="font-bold text-pink-900 font-serif text-xl text-center mb-2">
+                  <Ar>الْمُؤَنَّثُ</Ar> <span className="text-sm font-sans text-pink-700">(Женский род)</span>
+                </h3>
+                <div className="text-[10px] font-bold text-pink-700 mb-1">3 внешних признака:</div>
+                <div className="space-y-2 mb-3">
+                  {[
+                    {sign:'ة', name:'التَّاءُ الْمَرْبُوطَة', pct:'99%', ex:[['عَائِشَةُ','Аиша'],['سَيَّارَةٌ','машина'],['جَمِيلَةٌ','красивая']], exc:'Исключения (1%): أُسَامَةُ، حَمْزَةُ (мужские имена)'},
+                    {sign:'ى', name:'الْأَلِفُ الْمَقْصُورَة', pct:'99%', ex:[['هُدَى','Худа'],['سَلْمَى','Сальма'],['بُشْرَى','радостная весть']], exc:''},
+                    {sign:'اء', name:'الْأَلِفُ الْمَمْدُودَة', pct:'100%', ex:[['بَيْضَاءُ','белая'],['صَحْرَاءُ','пустыня'],['حَمْرَاءُ','красная']], exc:''},
+                  ].map((sg,i) => (
+                    <div key={i} className="bg-white rounded-lg p-2 border border-pink-100">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Ar className="text-lg font-bold text-pink-700">ـ{sg.sign}</Ar>
+                        <span className="text-[10px] text-gray-500 flex-1">{sg.name}</span>
+                        <span className="text-[9px] font-bold text-green-600 bg-green-50 px-1 rounded">{sg.pct} ж.р.</span>
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        {sg.ex.map(([a,r],j) => <span key={j} className="text-[10px] bg-pink-50 rounded px-1"><Ar>{a}</Ar> {r}</span>)}
+                      </div>
+                      {sg.exc && <div className="text-[9px] text-red-500 mt-1">{sg.exc}</div>}
+                    </div>
+                  ))}
+                </div>
+                <div className="text-[10px] font-bold text-pink-700 mb-1">Женский по смыслу (без признака):</div>
+                <div className="bg-white rounded-lg p-2 border border-pink-100 space-y-1 text-[10px] text-gray-700">
+                  <div>Лица жен. пола: <Ar>بِنْتٌ — حَامِلٌ — أُمٌّ — مَرْيَمُ</Ar></div>
+                  <div>Племена: <Ar>قُرَيْش — قَحْطَان</Ar></div>
+                  <div>Народы: <Ar>الرُّوس — الْكَازَاخ</Ar> (Русские, Казахи)</div>
+                  <div>Города: <Ar>مُوسْكُو — أَلْمَاتِي</Ar> (Москва, Алматы)</div>
+                  <div>Страны: <Ar>رُوسِيَا — كَازَاخِسْتَان</Ar></div>
+                </div>
+                <div className="mt-2 text-[10px] font-bold text-pink-700 mb-1">Парные части тела (женский род):</div>
+                <div className="grid grid-cols-3 gap-1">
+                  {[['يَدٌ','рука'],['عَيْنٌ','глаз'],['أُذُنٌ','ухо']].map(([a,r],i) => (
+                    <div key={i} className="bg-white rounded p-1.5 text-center border border-pink-100">
+                      <Ar className="text-sm font-bold text-pink-800 block">{a}</Ar>
+                      <span className="text-[9px] text-gray-500">{r}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+{/* ══════ БЛОК 5-7: ЧИСЛО ══════ */}
+            <V2up tc="pink" bc="emerald" />
+            <ChainLink />
+            <BHead ar="عَدَدُ الِاسْمِ" ru="ЧИСЛО ИМЕНИ" bg="indigo" lesson="5–7" />
+            <V3down c="indigo" />
+            <div className="grid grid-cols-3 gap-5 w-full z-10 items-stretch">
+
+              {/* ── Ед.ч. ── */}
+              <div className="bg-indigo-50 border-t-2 border-indigo-400 rounded-xl p-4 shadow-sm flex flex-col">
+                <LBadge n={5} />
+                <Ar className="text-xl font-bold text-indigo-900 block text-center">الْمُفْرَدُ</Ar>
+                <div className="text-[10px] text-indigo-700 text-center mb-3">Единственное число (1)</div>
+                <IBox color="indigo"><Ar>مَا دَلَّ عَلَى وَاحِدٍ أَوْ وَاحِدَةٍ</Ar><br/>То, что указывает на одного или одну.</IBox>
+                <div className="mt-3 space-y-2">
+                  <div className="bg-white rounded-lg p-2 border border-indigo-100 text-center">
+                    <Ar className="text-xl font-bold text-indigo-800">طَالِبٌ</Ar>
+                    <span className="text-xs text-gray-500 block">студент (м)</span>
+                  </div>
+                  <div className="bg-white rounded-lg p-2 border border-indigo-100 text-center">
+                    <Ar className="text-xl font-bold text-pink-800">طَالِبَةٌ</Ar>
+                    <span className="text-xs text-gray-500 block">студентка (ж)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Двойств. ── */}
+              <div className="bg-indigo-50 border-t-2 border-indigo-500 rounded-xl p-4 shadow-sm flex flex-col">
+                <LBadge n={5} />
+                <Ar className="text-xl font-bold text-indigo-900 block text-center">الْمُثَنَّى</Ar>
+                <div className="text-[10px] text-indigo-700 text-center mb-3">Двойственное число (2)</div>
+                <IBox color="indigo">Добавляется <Ar className="font-bold">ـَانِ</Ar> (الرفع) или <Ar className="font-bold">ـَيْنِ</Ar> (النصب/الجر)</IBox>
+                <RBox>Правило для ة: раскрывается в ت<br/><Ar>سَيَّارَةٌ → سَيَّارَتَانِ</Ar></RBox>
+                <div className="mt-2 space-y-1">
+                  {[
+                    {s:'بَيْتٌ',d:'بَيْتَانِ',ru:'два дома'},
+                    {s:'مُسْلِمٌ',d:'مُسْلِمَانِ',ru:'два мусульманина'},
+                  ].map((e,i) => (
+                    <div key={i} className="bg-white rounded p-2 border border-indigo-100 text-[11px]">
+                      <Ar className="font-bold">{e.s}</Ar> → <Ar className="font-bold text-indigo-700">{e.d}</Ar>
+                      <span className="text-gray-500 ml-1">— {e.ru}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 text-[10px] font-bold text-indigo-700 mb-1">Падежи двойственного числа:</div>
+                <div className="space-y-1">
+                  {[
+                    {case_:'الرَّفْع',sign:'ـَانِ',ex:'الْمُعَلِّمَانِ مَاهِرَانِ',note:'алиф = признак'},
+                    {case_:'النَّصْب',sign:'ـَيْنِ',ex:'رَأَيْتُ رَجُلَيْنِ',note:'ياء = признак'},
+                    {case_:'الْجَرّ',sign:'ـَيْنِ',ex:'فَرِحْتُ بِهَدِيَّتَيْنِ',note:'ياء = признак'},
+                  ].map((r,i) => (
+                    <div key={i} className="bg-white p-1.5 rounded border border-indigo-100">
+                      <div className="flex justify-between items-center">
+                        <Ar className="text-[10px] font-bold text-indigo-700">{r.case_}</Ar>
+                        <Ar className="text-sm font-bold text-red-600">{r.sign}</Ar>
+                      </div>
+                      <Ar className="text-[10px] text-gray-600">{r.ex}</Ar>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Множ. ── */}
+              <div className="bg-indigo-50 border-t-2 border-indigo-600 rounded-xl p-4 shadow-sm flex flex-col">
+                <LBadge n="6–7" />
+                <Ar className="text-xl font-bold text-indigo-900 block text-center">الْجَمْعُ</Ar>
+                <div className="text-[10px] text-indigo-700 text-center mb-3">Множественное число (3+)</div>
+
+                {/* Правильное мужское */}
+                <div className="bg-blue-50 rounded-lg p-3 border border-blue-200 mb-2">
+                  <div className="text-[10px] font-bold text-blue-700 mb-1">١. جَمْعُ الْمُذَكَّرِ السَّالِمِ</div>
+                  <div className="text-[10px] text-blue-800 mb-2">Правильное мужское. Условия: мужской род + разумное (عَاقِل: Аллах, ангелы, джинны, люди)</div>
+                  <RBox><Ar>الرفع: +ونَ &nbsp;&nbsp; النصب/الجر: +ينَ</Ar></RBox>
+                  <div className="mt-2 space-y-1">
+                    {[
+                      {s:'مُسْلِمٌ',r:'مُسْلِمُونَ',rn:'مُسْلِمِينَ'},
+                      {s:'مُدَرِّسٌ',r:'مُدَرِّسُونَ',rn:'مُدَرِّسِينَ'},
+                      {s:'مُؤْمِنٌ',r:'مُؤْمِنُونَ',rn:'مُؤْمِنِينَ'},
+                    ].map((e,i) => (
+                      <div key={i} className="bg-white rounded p-1 border border-blue-100 text-[10px]">
+                        <Ar className="font-bold">{e.s}</Ar> → <Ar className="text-blue-700 font-bold">{e.r}</Ar> / <Ar className="text-blue-700 font-bold">{e.rn}</Ar>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Правильное женское */}
+                <div className="bg-pink-50 rounded-lg p-3 border border-pink-200 mb-2">
+                  <div className="text-[10px] font-bold text-pink-700 mb-1">٢. جَمْعُ الْمُؤَنَّثِ السَّالِمِ</div>
+                  <div className="text-[10px] text-pink-800 mb-2">Правильное женское. Слова ж.р.</div>
+                  <RBox>Убрать ة → добавить <Ar>ـَاتٌ</Ar><br/>Без ة: просто добавить <Ar>ـَاتٌ</Ar></RBox>
+                  <div className="mt-2 space-y-1">
+                    {[
+                      {s:'سَيَّارَةٌ',pl:'سَيَّارَاتٌ',ru:'машины'},
+                      {s:'طَالِبَةٌ',pl:'طَالِبَاتٌ',ru:'студентки'},
+                      {s:'سَجَّادَةٌ',pl:'سَجَّادَاتٌ',ru:'ковры'},
+                      {s:'زَيْنَبُ',pl:'زَيْنَبَاتٌ',ru:'Зайнаб (мн.)'},
+                    ].map((e,i) => (
+                      <div key={i} className="bg-white rounded p-1 border border-pink-100 text-[10px]">
+                        <Ar className="font-bold">{e.s}</Ar> → <Ar className="text-pink-700 font-bold">{e.pl}</Ar>
+                        <span className="text-gray-500 ml-1">— {e.ru}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Ломаное */}
+                <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+                  <div className="text-[10px] font-bold text-orange-700 mb-1">٣. جَمْعُ التَّكْسِيرِ</div>
+                  <div className="text-[10px] text-orange-800 mb-2">Ломаное — структура «ломается», формул нет. Учить наизусть!</div>
+                  <div className="space-y-1">
+                    {[
+                      {s:'كِتَابٌ',pl:'كُتُبٌ',ru:'книги',note:'ا исчезает'},
+                      {s:'طَالِبٌ',pl:'طُلَّابٌ',ru:'студенты'},
+                      {s:'غُرْفَةٌ',pl:'غُرَفٌ',ru:'комнаты'},
+                      {s:'نَجْمٌ',pl:'نُجُومٌ',ru:'звёзды'},
+                    ].map((e,i) => (
+                      <div key={i} className="bg-white rounded p-1 border border-orange-100 text-[10px]">
+                        <Ar className="font-bold">{e.s}</Ar> → <Ar className="text-orange-700 font-bold">{e.pl}</Ar>
+                        <span className="text-gray-500 ml-1">— {e.ru}</span>
+                        {e.note && <span className="text-[9px] text-red-400 ml-1">({e.note})</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+{/* ══════ БЛОК 8: ОПРЕДЕЛЁННОСТЬ ══════ */}
+            <V3up tc="indigo" bc="emerald" />
+            <ChainLink />
+            <BHead ar="النَّكِرَةُ وَالْمَعْرِفَةُ" ru="ОПРЕДЕЛЁННОСТЬ / НЕОПРЕДЕЛЁННОСТЬ" bg="amber" lesson={8} />
+            <div className="w-0.5 h-4 bg-emerald-400 z-0"></div>
+            <div className="w-full z-10 bg-amber-50 border border-amber-200 rounded-xl p-4 mb-2">
+              <div className="text-xs font-bold text-amber-800 mb-2 text-center">Пример из жизни: магазин канцтоваров</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white rounded-lg p-3 border border-gray-200">
+                  <Ar className="text-2xl font-bold text-gray-700 block text-center">قَلَمٌ</Ar>
+                  <p className="text-[10px] text-center text-gray-600 mt-1">«أُرِيدُ قَلَمًا» — покупатель хочет <strong>любую</strong> ручку, не важно какую</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-amber-300">
+                  <Ar className="text-2xl font-bold text-amber-800 block text-center">الْقَلَمُ</Ar>
+                  <p className="text-[10px] text-center text-gray-600 mt-1">«أُرِيدُ الْقَلَمَ» — покупатель хочет <strong>конкретную</strong> ручку (ту, о которой говорили)</p>
+                </div>
+              </div>
+            </div>
+
+            <V2down c="amber" />
+            <div className="grid grid-cols-2 gap-5 w-full z-10 items-stretch">
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col shadow-sm">
+                <h3 className="font-bold font-serif text-gray-800 text-xl text-center mb-2"><Ar>النَّكِرَةُ</Ar> <span className="text-xs font-sans">(Неопределённое)</span></h3>
+                <IBox color="gray">Указывает на что-то общее, неизвестное, неконкретное.</IBox>
+                <div className="mt-3 space-y-2">
+                  {[
+                    {ar:'قَلَمٌ',ru:'Какая-то ручка (любая)'},
+                    {ar:'كِتَابٌ',ru:'Какая-то книга (любая)'},
+                  ].map((e,i) => (
+                    <div key={i} className="bg-white rounded-lg p-2 text-center border border-gray-100">
+                      <Ar className="text-xl font-bold text-gray-700 block">{e.ar}</Ar>
+                      <span className="text-[10px] text-gray-500">{e.ru}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 flex flex-col shadow-sm">
+                <h3 className="font-bold font-serif text-amber-900 text-xl text-center mb-2"><Ar>الْمَعْرِفَةُ</Ar> <span className="text-xs font-sans">(Определённое)</span></h3>
+                <IBox color="amber">6 видов определённых имён:</IBox>
+                <div className="mt-3 space-y-2">
+                  {[
+                    {n:'١. الضَّمَائِر', ru:'Местоимения', ar:'أَنَا — أَنْتَ — هُوَ — هِيَ'},
+                    {n:'٢. أسم. Указ.', ru:'Указательные', ar:'هَذَا (этот) — هَذِهِ (эта)'},
+                    {n:'٣. أسم. Отн.', ru:'Относительные', ar:'الَّذِي (который) — الَّتِي'},
+                    {n:'٤. الْعَلَمُ', ru:'Имя собственное', ar:'مُحَمَّدٌ — مَكَّةُ — مِصْرُ — الفارُوقُ — أَبُو بَكْرٍ'},
+                    {n:'٥. مع ال', ru:'С артиклем', ar:'كِتَابٌ → الْكِتَابُ (убрать танвин!)'},
+                    {n:'٦. الإضافة', ru:'Идафа (присоединение)', ar:'كِتَابُ مُحَمَّدٍ — كِتَابُكَ'},
+                  ].map((r,i) => (
+                    <div key={i} className="bg-white p-2 rounded-lg border border-amber-100">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[10px] font-bold text-amber-700">{r.n}</span>
+                        <span className="text-[10px] text-gray-500">— {r.ru}</span>
+                      </div>
+                      <Ar className="text-[11px] text-gray-700">{r.ar}</Ar>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+{/* ══════ БЛОК 9-10: МЕСТОИМЕНИЯ ══════ */}
+            <V2up tc="amber" bc="emerald" />
+            <ChainLink />
+            <BHead ar="الضَّمَائِرُ" ru="МЕСТОИМЕНИЯ" bg="purple" lesson="9–10" />
+            <div className="w-0.5 h-4 bg-emerald-400 z-0"></div>
+            <div className="w-full z-10 bg-purple-50 border border-purple-100 rounded-xl p-3 mb-2">
+              <div className="text-[10px] text-purple-800 text-center">Слово <Ar className="font-bold">ضَمِيرٌ</Ar> от глагола «скрывать» — местоимение заменяет/скрывает имя для краткости.</div>
+            </div>
+
+            <V2down c="purple" />
+            <div className="grid grid-cols-2 gap-5 w-full z-10">
+              <div className="bg-purple-50 p-3 rounded-xl text-center border border-purple-200 shadow-sm">
+                <LBadge n={9} />
+                <h3 className="font-bold font-serif text-purple-900 text-lg"><Ar>الْمُنْفَصِلَةُ</Ar></h3>
+                <p className="text-xs text-purple-700 mt-1">Раздельные — пишутся отдельно, с них можно начинать предложение</p>
+              </div>
+              <div className="bg-fuchsia-50 p-3 rounded-xl text-center border border-fuchsia-200 shadow-sm">
+                <LBadge n={10} />
+                <h3 className="font-bold font-serif text-fuchsia-900 text-lg"><Ar>الْمُتَّصِلَةُ</Ar></h3>
+                <p className="text-xs text-fuchsia-700 mt-1">Слитные — присоединяются к слову в конце. Пример: <Ar className="font-bold">كِتَابِي — يَدِهِ — فِيهِ</Ar></p>
+              </div>
+            </div>
+
+            {/* Слияние + разветвление на 3 */}
+            <div className="relative w-full h-8 z-0">
+              <div className="absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-purple-400"></div>
+              <div className="absolute top-0 right-[calc(25%-6px)] w-0.5 h-4 bg-purple-400"></div>
+              <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-purple-400"></div>
+              <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-purple-400 -ml-[1px]"></div>
+            </div>
+            <div className="relative w-full h-8 z-0 -mt-4">
+              <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-purple-400"></div>
+              <div className="absolute top-4 left-[calc(16.666%-8px)] w-0.5 h-4 bg-purple-400"></div>
+              <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-purple-400 -ml-[1px]"></div>
+              <div className="absolute top-4 right-[calc(16.666%-8px)] w-0.5 h-4 bg-purple-400"></div>
+            </div>
+
+            {/* Раздельные местоимения — таблица */}
+            <div className="grid grid-cols-3 gap-5 w-full z-10">
+              {[
+                { title:'الْمُتَكَلِّمُ — 1 лицо', color:'blue', note:'Для обоих родов', rows:[
+                  {ar:'أَنَا', ru:'Я', ex:'أَنَا مُسْلِمٌ / مُسْلِمَةٌ'},
+                  {ar:'نَحْنُ', ru:'Мы', ex:'نَحْنُ مُسْلِمُونَ / مُسْلِمَاتٌ'},
+                ]},
+                { title:'الْمُخَاطَبُ — 2 лицо', color:'amber', note:'Учитывать род и число', rows:[
+                  {ar:'أَنْتَ', ru:'Ты (м) — 1 мужч.', ex:''},
+                  {ar:'أَنْتِ', ru:'Ты (ж) — 1 женщ.', ex:''},
+                  {ar:'أَنْتُمَا', ru:'Вы двое (м+ж)', ex:''},
+                  {ar:'أَنْتُمْ', ru:'Вы (м, 3+)', ex:''},
+                  {ar:'أَنْتُنَّ', ru:'Вы (ж, 3+)', ex:''},
+                ]},
+                { title:'الْغَائِبُ — 3 лицо', color:'rose', note:'Учитывать род и число', rows:[
+                  {ar:'هُوَ', ru:'Он — 1 мужч.', ex:''},
+                  {ar:'هِيَ', ru:'Она — 1 женщ.', ex:''},
+                  {ar:'هُمَا', ru:'Они двое (м+ж)', ex:''},
+                  {ar:'هُمْ', ru:'Они (м, 3+)', ex:''},
+                  {ar:'هُنَّ', ru:'Они (ж, 3+)', ex:''},
+                ]},
+              ].map((col,i) => (
+                <div key={i} className={`bg-${col.color}-50 border border-${col.color}-200 rounded-xl p-3 shadow-sm`}>
+                  <div className={`text-xs font-bold text-${col.color}-800 mb-1 text-center`}>{col.title}</div>
+                  <div className="text-[9px] text-gray-500 text-center mb-2">{col.note}</div>
+                  <div className="space-y-1.5">
+                    {col.rows.map((r,j) => (
+                      <div key={j} className="bg-white rounded-lg p-2 border border-gray-100">
+                        <div className="flex items-baseline gap-2">
+                          <Ar className="text-lg font-bold text-gray-800">{r.ar}</Ar>
+                          <span className="text-[10px] text-gray-500 flex-1">— {r.ru}</span>
+                        </div>
+                        {r.ex && <div className="text-[9px] text-emerald-600 mt-1"><Ar>{r.ex}</Ar></div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Слитные местоимения — таблица */}
+            <div className="relative w-full h-8 z-0">
+              <div className="absolute top-0 left-[calc(16.666%-8px)] w-0.5 h-4 bg-purple-400"></div>
+              <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-purple-400 -ml-[1px]"></div>
+              <div className="absolute top-0 right-[calc(16.666%-8px)] w-0.5 h-4 bg-purple-400"></div>
+              <div className="absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-purple-400"></div>
+              <div className="absolute top-4 left-1/2 w-0.5 h-4 bg-purple-400 -ml-[1px]"></div>
+            </div>
+
+            <div className="w-full z-10">
+              <div className="text-xs font-bold text-fuchsia-700 text-center mb-2">الضَّمَائِرُ الْمُتَّصِلَةُ — Слитные местоимения (Урок 10)</div>
+              <Tbl
+                headers={['الضمير','Рус.','Суффикс','مع الاسم (с сущ.)','مع الفعل (с гл.)','مع الحرف (с предлогом)']}
+                rows={ATTACHED.map(r => [
+                  <Ar className="text-base font-bold text-gray-800">{r.pr}</Ar>,
+                  <span className="text-[10px]">{r.ru}</span>,
+                  <Ar className="text-base font-bold text-fuchsia-700">{r.suf}</Ar>,
+                  <Ar className="text-sm">{r.ism}</Ar>,
+                  <Ar className="text-sm">{r.fi}</Ar>,
+                  <Ar className="text-sm">{r.hf}</Ar>,
+                ])}
+                rowCls={r => r.p===1?'bg-blue-50/30':r.p===2?'bg-amber-50/30':'bg-rose-50/30'}
+              />
+            </div>
+
+{/* ══════ БЛОК 11: ПРЕДЛОЖЕНИЯ ══════ */}
+            <div className="relative w-full h-8 z-0">
+              <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-purple-400 -ml-[1px]"></div>
+              <div className="absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-purple-400"></div>
+              <div className="absolute top-4 left-[calc(25%-6px)] w-0.5 h-4 bg-emerald-400"></div>
+              <div className="absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-emerald-400"></div>
+            </div>
+            <div className="w-full z-10 bg-fuchsia-50 border border-fuchsia-100 rounded-xl p-3 mb-1 text-xs text-fuchsia-800 text-center">
+              <strong>Урок 10 — Структура текста:</strong> Текст (<Ar>نَصٌّ</Ar>) → Предложения (<Ar>جُمْلَةٌ</Ar>) → Слова (<Ar>كَلِمَةٌ</Ar>)
+            </div>
+            <BHead ar="أَقْسَامُ الْجُمْلَةِ" ru="ВИДЫ ПРЕДЛОЖЕНИЙ" bg="teal" lesson={11} />
+            <V2down c="teal" />
+            <div className="grid grid-cols-2 gap-5 w-full z-10 items-stretch">
+              {/* Именное */}
+              <div className="bg-teal-50 p-4 rounded-xl border border-teal-200 flex flex-col shadow-sm">
+                <h3 className="font-bold font-serif text-teal-900 text-xl text-center mb-1"><Ar>الْجُمْلَةُ الِاسْمِيَّةُ</Ar></h3>
+                <div className="text-xs text-center text-teal-700 mb-3">Именное предложение — начинается с Имени (<Ar>اسم</Ar>)</div>
+                <IBox color="teal"><Ar>الَّتِي تَبْدَأُ بِالِاسْمِ</Ar><br/>Та, которая начинается с имени.</IBox>
+                <div className="text-[10px] font-bold text-teal-700 mt-3 mb-2">Два обязательных компонента:</div>
+                <div className="flex gap-3">
+                  <div className="bg-white p-3 rounded-lg flex-1 text-center border border-teal-100 shadow-sm">
+                    <Ar className="font-bold text-teal-800 text-lg block">الْمُبْتَدَأُ</Ar>
+                    <span className="text-[10px] text-gray-500 block mt-1">Подлежащее</span>
+                    <span className="text-[9px] text-gray-400">«начатое» — о чём речь</span>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg flex-1 text-center border border-teal-100 shadow-sm">
+                    <Ar className="font-bold text-teal-800 text-lg block">الْخَبَرُ</Ar>
+                    <span className="text-[10px] text-gray-500 block mt-1">Сказуемое</span>
+                    <span className="text-[9px] text-gray-400">«весть» — информация о мубтада</span>
+                  </div>
+                </div>
+                <div className="mt-3 bg-red-50 rounded p-2 text-[10px] text-red-700 font-bold text-center border border-red-100">
+                  Оба всегда в состоянии <Ar>الرَّفْع</Ar>!<br/>
+                  <Ar>الْمُبْتَدَأُ</Ar> в основе — всегда определённое (<Ar>مَعْرِفَة</Ar>)
+                </div>
+                <div className="mt-2 bg-white rounded p-2 border border-teal-100 text-[10px]">
+                  <div className="font-bold text-teal-700 mb-1">Примеры:</div>
+                  <div><Ar className="text-base">الْمُعَلِّمَانِ</Ar><span className="text-[9px] text-gray-400"> (مبتدأ)</span> <Ar className="text-base">مَاهِرَانِ</Ar><span className="text-[9px] text-gray-400"> (خبر)</span></div>
+                  <span className="text-gray-500">Два учителя умелы</span>
+                </div>
+              </div>
+              {/* Глагольное */}
+              <div className="bg-cyan-50 p-4 rounded-xl border border-cyan-200 flex flex-col shadow-sm">
+                <h3 className="font-bold font-serif text-cyan-900 text-xl text-center mb-1"><Ar>الْجُمْلَةُ الْفِعْلِيَّةُ</Ar></h3>
+                <div className="text-xs text-center text-cyan-700 mb-3">Глагольное предложение — начинается с Глагола (<Ar>فعل</Ar>)</div>
+                <IBox color="cyan"><Ar>الَّتِي تَبْدَأُ بِالْفِعْلِ</Ar><br/>Та, которая начинается с глагола.</IBox>
+                <div className="mt-3 space-y-2">
+                  {[
+                    {ar:'ذَهَبَ مُحَمَّدٌ', ru:'Ушёл Мухаммад', note:'Глагол + Имя'},
+                    {ar:'يَقْرَأُ الطَّالِبُ', ru:'Студент читает', note:''},
+                    {ar:'جَاءَ هَؤُلَاءِ', ru:'Пришли эти', note:''},
+                  ].map((e,i) => (
+                    <div key={i} className="bg-white p-3 rounded-lg border border-cyan-100 text-center">
+                      <Ar className="text-xl font-bold text-cyan-800 block">{e.ar}</Ar>
+                      <span className="text-[10px] text-gray-500">{e.ru}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+{/* ══════ БЛОК 12-13: ГЛАГОЛЫ ══════ */}
+            <V2up tc="teal" bc="emerald" />
+            <ChainLink />
+            <BHead ar="الْأَفْعَالُ — الصَّرْفُ" ru="СПРЯЖЕНИЕ ГЛАГОЛОВ" bg="orange" lesson="12–13" />
+
+            {/* Словарная форма */}
+            <div className="w-full z-10 bg-orange-50 border border-orange-200 rounded-xl p-3 mt-2">
+              <div className="text-[10px] font-bold text-orange-700 mb-2 text-center">Словарная форма глагола (Урок 12)</div>
+              <Tbl
+                headers={['Русское','الماضي (он)','المضارع (он)','الأمر (ты)']}
+                rows={[
+                  ['читать', <Ar>قَرَأَ</Ar>, <Ar>يَقْرَأُ</Ar>, <Ar>اِقْرَأْ</Ar>],
+                  ['умываться', <Ar>تَوَضَّأَ</Ar>, <Ar>يَتَوَضَّأُ</Ar>, <Ar>تَوَضَّأْ</Ar>],
+                  ['молиться', <Ar>صَلَّى</Ar>, <Ar>يُصَلِّي</Ar>, <Ar>صَلِّ</Ar>],
+                  ['идти', <Ar>ذَهَبَ</Ar>, <Ar>يَذْهَبُ</Ar>, <Ar>اِذْهَبْ</Ar>],
+                  ['жить', <Ar>سَكَنَ</Ar>, <Ar>يَسْكُنُ</Ar>, <Ar>اُسْكُنْ</Ar>],
+                ]}
+              />
+            </div>
+
+            <div className="w-0.5 h-4 bg-emerald-400 z-0"></div>
+
+            {/* Прошедшее время */}
+            <div className="w-full z-10">
+              <div className="text-xs font-bold text-orange-700 text-center mb-2">
+                فِعْلُ الْمَاضِي — Прошедшее время (Урок 12)
+                <span className="text-[10px] text-gray-500 font-normal ml-2">Основа: ذَهَبَ → + окончание (на пред. букву ставится ـْ)</span>
+              </div>
+              <Tbl
+                headers={['Местоим.','Рус.','Глагол','Правило','Ещё примеры']}
+                rows={PAST.map(r => [
+                  <Ar className="text-base font-bold text-gray-800">{r.pr}</Ar>,
+                  <span className="text-[10px]">{r.ru}</span>,
+                  <Ar className="text-lg font-bold text-orange-800">{r.verb}</Ar>,
+                  <span className="text-[10px] font-mono bg-gray-100 rounded px-1">{r.rule}</span>,
+                  <Ar className="text-[10px] text-gray-500">{r.more}</Ar>,
+                ])}
+                rowCls={r => pColor(r.p)}
+              />
+              <div className="flex gap-3 mt-1 text-[9px]">
+                <span className="bg-blue-50 rounded px-2 py-0.5 text-blue-600 font-bold">■ 1 лицо</span>
+                <span className="bg-amber-50 rounded px-2 py-0.5 text-amber-600 font-bold">■ 2 лицо</span>
+                <span className="bg-rose-50 rounded px-2 py-0.5 text-rose-600 font-bold">■ 3 лицо</span>
+              </div>
+            </div>
+
+            <div className="w-0.5 h-6 bg-emerald-400 z-0"></div>
+
+            {/* Настоящее время */}
+            <div className="w-full z-10">
+              <div className="text-xs font-bold text-blue-700 text-center mb-2">
+                فِعْلُ الْمُضَارِعِ — Настоящее/Будущее время (Урок 13)
+                <span className="text-[10px] text-gray-500 font-normal ml-2">Основа: ـذْهَبـ → приставка + основа + суффикс</span>
+              </div>
+              <Tbl
+                headers={['Местоим.','Рус.','Глагол','Формула','Ещё примеры']}
+                rows={PRESENT.map(r => [
+                  <Ar className="text-base font-bold text-gray-800">{r.pr}</Ar>,
+                  <span className="text-[10px]">{r.ru}</span>,
+                  <Ar className="text-lg font-bold text-blue-800">{r.verb}</Ar>,
+                  <span className="text-[10px] font-mono bg-gray-100 rounded px-1">{r.rule}</span>,
+                  <Ar className="text-[10px] text-gray-500">{r.more}</Ar>,
+                ])}
+                rowCls={r => pColor(r.p)}
+              />
+            </div>
+
+            <div className="w-0.5 h-6 bg-emerald-400 z-0"></div>
+
+            {/* Повелительное */}
+            <div className="w-full z-10">
+              <div className="text-xs font-bold text-red-700 text-center mb-2">
+                فِعْلُ الْأَمْرِ — Повелительное наклонение (Урок 13)
+                <span className="text-[10px] text-gray-500 font-normal ml-2">Только для 2-го лица (الْمُخَاطَب)</span>
+              </div>
+              <Tbl
+                headers={['Местоим.','Рус.','Приказ','Правило']}
+                rows={IMPERATIVE.map(r => [
+                  <Ar className="text-base font-bold text-gray-800">{r.pr}</Ar>,
+                  <span className="text-[10px]">{r.ru}</span>,
+                  <Ar className="text-lg font-bold text-red-800">{r.verb}</Ar>,
+                  <span className="text-[10px] font-mono bg-gray-100 rounded px-1">{r.note}</span>,
+                ])}
+                rowCls={_ => 'bg-amber-50/30'}
+              />
+            </div>
+
+          </div>
+        </ScaleWrapper>
+      </div>
+    </div>
+  );
+};
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
 </body>
 </html>
