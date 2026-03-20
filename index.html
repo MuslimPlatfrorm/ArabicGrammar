@@ -14,6 +14,18 @@
   <script>tailwind.config={theme:{extend:{fontFamily:{body:['Spectral','Georgia','serif'],ar:['Amiri','serif']}}}}</script>
   <style>
     html,body,#root{height:100%;overflow:hidden;}
+    /* ── App shell — transform-based zoom ──────────────────────────────────
+       transform:scale() on #app-shell is the ONLY scaling mechanism.
+       We compensate the logical size so the visual output always fills the
+       viewport exactly at any scale.
+    ──────────────────────────────────────────────────────────────────────── */
+    #app-shell{
+      transform-origin:top left;
+      transform:scale(var(--app-scale,1));
+      width:calc(100% / var(--app-scale,1));
+      height:calc(100dvh / var(--app-scale,1));
+      overflow:hidden;
+    }
     *,*::before,*::after{box-sizing:border-box;}
     body{font-family:'Spectral',Georgia,serif;-webkit-text-size-adjust:100%;overscroll-behavior:none;margin:0;padding:0;touch-action:manipulation;}
     [lang="ar"],.font-ar{font-family:'Amiri',serif;line-height:2.1;}
@@ -37,26 +49,101 @@
     .nav-pill{transition:background .15s,color .15s;}
     .r-header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.97);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
 
-    /* Thin draggable divider */
-    .col-divider{
-      width:5px;flex-shrink:0;cursor:col-resize;
-      background:linear-gradient(to bottom,#6ee7b7,#34d399 50%,#6ee7b7);
-      display:flex;align-items:center;justify-content:center;
-      user-select:none;touch-action:none;transition:width .15s,background .15s;
+    /* ── ANTAGONIST SLIDER ARCHITECTURE ──────────────────────────────────────
+       Both panels are EXACTLY 100% of the viewport width and sit on top of 
+       each other. The right panel uses `clip-path` to hide its left portion.
+       When the divider moves, we change the clip-path, creating a masking 
+       effect without squeezing or reflowing the text.
+    ──────────────────────────────────────────────────────────────────────── */
+    .antagonist-layer {
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
     }
-    .col-divider:hover,.col-divider.resizing{
-      width:8px;background:linear-gradient(to bottom,#34d399,#059669 50%,#34d399);
+    
+    .layer-left {
+      z-index: 1;
+      background: #fdf8f0;
     }
-    .col-divider::after{
-      content:'';display:block;width:3px;height:28px;
-      background:repeating-linear-gradient(to bottom,rgba(255,255,255,.8) 0,rgba(255,255,255,.8) 2.5px,transparent 2.5px,transparent 5px);
-      border-radius:2px;pointer-events:none;
+    
+    .layer-right {
+      z-index: 2;
+      background: #ffffff;
+      /* Masks the right panel from the left edge exactly at --div-x */
+      clip-path: inset(0 0 0 var(--div-x, 50%));
+      will-change: clip-path;
     }
 
-    /* Right panel: prevent text overflow */
-    .r-scroll{overflow-x:hidden;}
-    .r-scroll *{min-width:0;word-break:break-word;overflow-wrap:break-word;}
-    .r-scroll [lang="ar"]{word-break:normal;}
+    /* Snapping transition */
+    .container-snapping .layer-right {
+      transition: clip-path .3s cubic-bezier(.4,0,.2,1);
+    }
+    .container-snapping .col-divider {
+      transition: left .3s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* Divider — floats over the viewport at --div-x */
+    .col-divider{
+      position:absolute;top:0;bottom:0;
+      width:36px;
+      left:var(--div-x,50%);
+      transform:translateX(-50%);
+      z-index:20;
+      cursor:col-resize;
+      display:flex;align-items:center;justify-content:center;
+      user-select:none;touch-action:none;
+    }
+    .col-divider-line{
+      position:absolute;
+      width:4px;height:100%;
+      background:linear-gradient(to bottom,#6ee7b7,#10b981 50%,#6ee7b7);
+      transition:width .15s,background .15s;
+      pointer-events:none;
+    }
+    .col-divider:hover .col-divider-line,
+    .col-divider.resizing .col-divider-line{
+      width:8px;
+      background:linear-gradient(to bottom,#34d399,#059669 50%,#34d399);
+    }
+    .col-divider-handle{
+      position:absolute;
+      top:50%;left:50%;
+      /* Умный сдвиг ручки "капли" у краев экрана, чтобы она всегда оставалась полностью видимой и за нее можно было взяться */
+      transform:translate(calc(-50% + (0.5 - var(--div-ratio, 0.5)) * 36px), -50%);
+      width:36px;height:36px;
+      background:#ffffff;
+      border:3px solid #10b981;
+      border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 4px 12px rgba(0,0,0,0.25);
+      transition:border-color .15s,background-color .15s;
+      z-index:2;
+    }
+    .col-divider:hover .col-divider-handle,
+    .col-divider.resizing .col-divider-handle{
+      border-color:#059669;
+      background:#f0fdf4;
+    }
+    .col-divider-handle::before,
+    .col-divider-handle::after{
+      content:'';
+      width:2px;height:14px;
+      background:#10b981;
+      margin:0 2px;border-radius:2px;
+    }
+    .col-divider:hover .col-divider-handle::before,
+    .col-divider:hover .col-divider-handle::after,
+    .col-divider.resizing .col-divider-handle::before,
+    .col-divider.resizing .col-divider-handle::after{
+      background:#059669;
+    }
+
+    /* Right panel: contain content without breaking Arabic words */
+    .r-scroll{overflow-x:hidden;overflow-y:auto;}
+    .r-scroll > *{min-width:0;}
+    .r-scroll p,.r-scroll div,.r-scroll li,.r-scroll td{overflow-wrap:break-word;}
+    .r-scroll [lang="ar"]{word-break:normal;overflow-wrap:normal;}
 
     /* Zoom panel (managed by React) */
     .zoom-panel-base{
@@ -86,7 +173,7 @@
     .ag3{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:.45rem;}
     .ag4{display:grid;grid-template-columns:repeat(auto-fit,minmax(65px,1fr));gap:.4rem;}
 
-    @media(prefers-reduced-motion:reduce){.panel-enter{animation:none;}.nav-pill,.col-divider{transition:none;}}
+    @media(prefers-reduced-motion:reduce){.panel-enter{animation:none;}.nav-pill,.col-divider-bar{transition:none;}}
   </style>
 </head>
 <body>
@@ -162,11 +249,9 @@ const Tbl=({headers,rows,rCls})=>(
   </div>
 );
 
-/* ══════════ ARROW CONNECTOR COMPONENTS (from reference) ══════════ */
-/* Single vertical line between blocks */
+/* ══════════ ARROW CONNECTOR COMPONENTS ══════════ */
 const CLink=({c='emerald',h=8})=><div className={`w-0.5 bg-${c}-400 mx-auto z-0`} style={{height:`${h*4}px`}}></div>;
 
-/* 1 → 2 split (fan down from center) */
 const V2down=({c='emerald'})=>(
   <div className="relative w-full z-0" style={{height:32}}>
     <div className={`absolute top-0 left-1/2 w-0.5 h-4 bg-${c}-400 -ml-px`}></div>
@@ -176,7 +261,6 @@ const V2down=({c='emerald'})=>(
   </div>
 );
 
-/* 2 → 1 merge (fan up to center) */
 const V2up=({tc='emerald',bc='emerald'})=>(
   <div className="relative w-full z-0" style={{height:32}}>
     <div className={`absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-${tc}-400`}></div>
@@ -186,7 +270,6 @@ const V2up=({tc='emerald',bc='emerald'})=>(
   </div>
 );
 
-/* 1 → 3 split */
 const V3down=({c='emerald'})=>(
   <div className="relative w-full z-0" style={{height:32}}>
     <div className={`absolute top-0 left-1/2 w-0.5 h-4 bg-${c}-400 -ml-px`}></div>
@@ -197,7 +280,6 @@ const V3down=({c='emerald'})=>(
   </div>
 );
 
-/* 3 → 1 merge */
 const V3up=({tc='emerald',bc='emerald'})=>(
   <div className="relative w-full z-0" style={{height:32}}>
     <div className={`absolute top-0 left-[calc(16.666%-8px)] w-0.5 h-4 bg-${tc}-400`}></div>
@@ -208,7 +290,6 @@ const V3up=({tc='emerald',bc='emerald'})=>(
   </div>
 );
 
-/* Block header */
 const BHead=({ar,ru,bg='emerald',lesson})=>(
   <div className={`inline-block bg-${bg}-50 px-4 py-2 rounded-xl border border-${bg}-200 shadow-sm z-10 text-center w-full`}>
     {lesson&&<div className={`text-[9px] font-bold bg-${bg}-100 text-${bg}-700 border border-${bg}-200 rounded-full px-2 py-0.5 inline-block mb-1`}>Урок {lesson}</div>}
@@ -217,24 +298,20 @@ const BHead=({ar,ru,bg='emerald',lesson})=>(
   </div>
 );
 
-/* Lesson badge */
 const LBadge=({n})=>(
   <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 mb-1">
     Урок {n}
   </span>
 );
 
-/* Info box */
 const IBox=({children,color='emerald'})=>(
   <div className={`bg-${color}-50 border border-${color}-200 rounded-lg p-2 text-[11px] text-${color}-900 leading-relaxed`}>{children}</div>
 );
 
-/* Rule box */
 const RBox=({children})=>(
   <div className="bg-amber-50 border border-amber-300 rounded-lg p-2 text-[11px] text-amber-900 font-bold text-center leading-relaxed">{children}</div>
 );
 
-/* Example row */
 const Ex=({ar,ru})=>(
   <div className="flex items-baseline gap-2 py-0.5 flex-wrap">
     <Ar className="text-sm font-bold text-gray-800">{ar}</Ar>
@@ -295,7 +372,7 @@ const ATTACHED=[
 const rCls=r=>r.muz?'bg-blue-50/60':r.muan?'bg-pink-50/60':r.p===1?'bg-slate-50/70':'';
 const pC=p=>p===1?'bg-blue-50/40':p===2?'bg-amber-50/40':'bg-rose-50/40';
 
-/* ══════════ ZOOM PANEL (React component — snap to left/right edge) ══════════ */
+/* ══════════ ZOOM PANEL (Unchanged) ══════════ */
 const ZoomPanel=({scale,zoomIn,zoomOut,resetZoom})=>{
   const [pos,setPos]=useState({top:16,right:16,left:'auto'});
   const [drag,setDrag]=useState(false);
@@ -373,12 +450,11 @@ const PH=({n,ar,sub})=>(
   </div>
 );
 
-/* ══════════ INFO PANELS — with arrow connectors ══════════ */
+/* ══════════ INFO PANELS ══════════ */
 const Info1=memo(()=>(
   <div className="p-3 space-y-0 flex flex-col items-center">
     <PH n="1" ar="الْكَلِمَةُ — أَقْسَامُ الْكَلَامِ" sub="Слово и его виды" />
     <div className="w-full p-3 space-y-2">
-      {/* نحو/صرف branch from title */}
       <div className="w-full flex justify-center">
         <div className="w-0.5 h-4 bg-emerald-400"></div>
       </div>
@@ -395,16 +471,13 @@ const Info1=memo(()=>(
           </div>
         ))}
       </div>
-      {/* merge to الكلمة */}
       <V2up tc="emerald" bc="emerald" />
-      {/* Main word block */}
       <div className="w-56 mx-auto bg-emerald-600 text-white rounded-lg p-3 text-center shadow-md ring-4 ring-emerald-100 z-10">
         <LBadge n={1} />
         <Ar className="text-2xl font-bold text-white block mb-1">الْكَلِمَةُ</Ar>
         <div className="text-xs font-semibold">Слово</div>
         <div className="text-[10px] text-emerald-200 mt-1 border-t border-emerald-500 pt-1">Высказывание, указывающее на единичное значение</div>
       </div>
-      {/* 3-way split to word types */}
       <V3down c="emerald" />
       <div className="ag3 w-full">
         <div className="bg-blue-50 border-t-2 border-blue-500 rounded-xl p-2 shadow-sm flex flex-col">
@@ -453,7 +526,6 @@ const Info2=memo(()=>(
       <BHead ar="الْإِعْرَابُ وَالْبِنَاءُ" ru="ИЗМЕНЯЕМОСТЬ / НЕИЗМЕНЯЕМОСТЬ" bg="emerald" lesson={2} />
       <V2down c="emerald" />
       <div className="ag2 w-full">
-        {/* المعرب */}
         <div className="bg-green-50 p-3 rounded-xl border border-green-300 shadow-sm">
           <h3 className="text-base font-bold text-green-900 font-ar mb-1"><Ar>الْمُعْرَبُ</Ar> <span className="text-[10px] font-sans text-green-700">(Изменяемое)</span></h3>
           <IBox color="green">Окончание <strong>меняется</strong> под воздействием факторов.</IBox>
@@ -468,7 +540,6 @@ const Info2=memo(()=>(
           </div>
           <div className="mt-2 text-[10px] text-green-700 font-bold">Пример: <Ar>بَيْتٌ / بَيْتًا / بَيْتٍ</Ar></div>
         </div>
-        {/* المبني */}
         <div className="bg-red-50 p-3 rounded-xl border border-red-300 shadow-sm">
           <h3 className="text-base font-bold text-red-900 font-ar mb-1"><Ar>الْمَبْنِيُّ</Ar> <span className="text-[10px] font-sans text-red-700">(Неизменяемое)</span></h3>
           <IBox color="red">Окончание <strong>не меняется</strong> ни при каких условиях.</IBox>
@@ -1224,26 +1295,121 @@ const App=()=>{
   const [active,setActive]=useState(1);
   const [scale,setScale]=useState(1);
   const leftRef=useRef(null);
-  const leftColRef=useRef(null);
   const secRefs=useRef({});
   const ticking=useRef(false);
   const containerRef=useRef(null);
   const isDragging=useRef(false);
-  const dragState=useRef({x:0,pct:50,cw:0});
-  const leftPctRef=useRef(50);
+  const dragState=useRef({startX:0,startDivX:0});
+  const divRatioRef=useRef(0.5);
+  const scaleRef=useRef(1);
+
+  /* Set divider CSS without moving the panels physically (just masking) */
+  const applyDivX=useCallback((c,divXViewport,cwViewport)=>{
+    const ratio = Math.max(0, Math.min(1, divXViewport/cwViewport));
+    divRatioRef.current=ratio;
+    const s=scaleRef.current||1;
+    c.style.setProperty('--div-x',(ratio*cwViewport/s)+'px');
+    c.style.setProperty('--div-ratio',ratio);
+  },[]);
+
+  const initLayout=useCallback((preserveRatio=false)=>{
+    const c=containerRef.current;
+    if(!c)return;
+    const cw=c.getBoundingClientRect().width;
+    if(!cw)return;
+    const ratio=preserveRatio
+      ? Math.max(0, Math.min(1, divRatioRef.current))
+      : 0.5;
+    applyDivX(c, ratio*cw, cw);
+  },[applyDivX]);
+
+  useEffect(()=>{
+    initLayout(false);
+    const ro=new ResizeObserver(()=>initLayout(true));
+    if(containerRef.current)ro.observe(containerRef.current);
+    return()=>ro.disconnect();
+  },[initLayout]);
+
+  const snapTo=useCallback((ratio)=>{
+    const c=containerRef.current;
+    if(!c)return;
+    const cw=c.getBoundingClientRect().width;
+    const safeRatio=Math.max(0,Math.min(1,ratio));
+    c.classList.add('container-snapping');
+    applyDivX(c, safeRatio*cw, cw);
+    
+    const handleEnd = () => c.classList.remove('container-snapping');
+    c.addEventListener('transitionend', handleEnd, {once:true});
+  },[applyDivX]);
+
+  const onDividerDown=useCallback((e)=>{
+    const c=containerRef.current;
+    if(!c)return;
+    const rect=c.getBoundingClientRect();
+    isDragging.current=true;
+    dragState.current={
+      startClientX:e.clientX,
+      startRatio:divRatioRef.current,
+      startCw:rect.width
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.currentTarget.classList.add('resizing');
+    document.body.style.userSelect='none';
+    e.preventDefault();
+  },[]);
+
+  useEffect(()=>{
+    const onMove=(e)=>{
+      if(!isDragging.current)return;
+      const c=containerRef.current;
+      if(!c)return;
+      const{startClientX,startRatio,startCw}=dragState.current;
+      const cw=c.getBoundingClientRect().width;
+      const minRatio=0;
+      const maxRatio=1;
+      const deltaRatio=(e.clientX-startClientX)/startCw;
+      const newRatio=Math.max(minRatio,Math.min(maxRatio,startRatio+deltaRatio));
+      applyDivX(c,newRatio*cw,cw);
+    };
+    const onUp=()=>{
+      if(!isDragging.current)return;
+      isDragging.current=false;
+      document.body.style.userSelect='';
+      document.querySelectorAll('.col-divider').forEach(d=>d.classList.remove('resizing'));
+      const c=containerRef.current;
+      if(!c)return;
+
+      // Если бросили рядом с краем (меньше 5%), то дожимаем до упора
+      let targetRatio = divRatioRef.current;
+      if (targetRatio < 0.05) targetRatio = 0;
+      else if (targetRatio > 0.95) targetRatio = 1;
+      else if (Math.abs(targetRatio - 0.5) < 0.05) targetRatio = 0.5;
+
+      if (targetRatio !== divRatioRef.current) {
+        snapTo(targetRatio);
+      }
+    };
+    window.addEventListener('pointermove',onMove,{passive:true});
+    window.addEventListener('pointerup',onUp);
+    window.addEventListener('pointercancel',onUp);
+    return()=>{
+      window.removeEventListener('pointermove',onMove);
+      window.removeEventListener('pointerup',onUp);
+      window.removeEventListener('pointercancel',onUp);
+    };
+  },[applyDivX,snapTo]);
 
   const zoomIn=useCallback(()=>setScale(p=>Math.min(parseFloat((p+.1).toFixed(1)),1.5)),[]);
   const zoomOut=useCallback(()=>setScale(p=>Math.max(parseFloat((p-.1).toFixed(1)),0.4)),[]);
   const resetZoom=useCallback(()=>setScale(1),[]);
 
-  /* Apply zoom to root */
   useEffect(()=>{
-    const root=document.getElementById('root');
-    root.style.zoom=scale;
-    document.documentElement.style.setProperty('--zoom-h',`calc(100dvh / ${scale})`);
-  },[scale]);
+    scaleRef.current=scale;
+    document.documentElement.style.setProperty('--app-scale',String(scale));
+    const raf=requestAnimationFrame(()=>initLayout(true));
+    return()=>cancelAnimationFrame(raf);
+  },[scale,initLayout]);
 
-  /* Scroll-spy */
   useEffect(()=>{
     const el=leftRef.current;
     if(!el)return;
@@ -1252,7 +1418,7 @@ const App=()=>{
       ticking.current=true;
       requestAnimationFrame(()=>{
         const rect=el.getBoundingClientRect();
-        const trigger=rect.top+el.clientHeight*0.25;
+        const trigger=rect.top+rect.height*0.25;
         let cur=1;
         for(const[id,sec] of Object.entries(secRefs.current)){
           if(sec){const r=sec.getBoundingClientRect();if(r.top<=trigger)cur=parseInt(id);}
@@ -1265,40 +1431,12 @@ const App=()=>{
     return()=>el.removeEventListener('scroll',onScroll);
   },[]);
 
-  /* Divider resize — direct DOM, no re-renders during drag */
-  const onDividerDown=useCallback((e)=>{
-    const cw=containerRef.current?containerRef.current.getBoundingClientRect().width:0;
-    isDragging.current=true;
-    dragState.current={x:e.clientX,pct:leftPctRef.current,cw};
-    e.currentTarget.setPointerCapture(e.pointerId);
-    e.currentTarget.classList.add('resizing');
-    e.preventDefault();
-  },[]);
-
-  useEffect(()=>{
-    const onMove=(e)=>{
-      if(!isDragging.current)return;
-      const{x,pct,cw}=dragState.current;
-      if(!cw)return;
-      const newPct=Math.max(15,Math.min(85,pct+(e.clientX-x)/cw*100));
-      leftPctRef.current=newPct;
-      if(leftColRef.current)leftColRef.current.style.width=newPct+'%';
-    };
-    const onUp=()=>{
-      if(!isDragging.current)return;
-      isDragging.current=false;
-      document.querySelectorAll('.col-divider').forEach(d=>d.classList.remove('resizing'));
-    };
-    window.addEventListener('pointermove',onMove,{passive:true});
-    window.addEventListener('pointerup',onUp);
-    return()=>{window.removeEventListener('pointermove',onMove);window.removeEventListener('pointerup',onUp);};
-  },[]);
-
   const goTo=useCallback((id)=>{
     const sec=secRefs.current[id];
     const container=leftRef.current;
     if(sec&&container){
-      const delta=sec.getBoundingClientRect().top-container.getBoundingClientRect().top-8;
+      const s=scaleRef.current||1;
+      const delta=(sec.getBoundingClientRect().top-container.getBoundingClientRect().top)/s-8;
       container.scrollBy({top:delta,behavior:'smooth'});
     }
   },[]);
@@ -1306,71 +1444,75 @@ const App=()=>{
   const ActiveInfo=LESSONS[active-1].Info;
 
   return(
-    <div className="flex flex-col bg-[#d6d3cd]" style={{height:'var(--zoom-h,100dvh)'}}>
-
-      {/* Zoom panel */}
+    <>
       <ZoomPanel scale={scale} zoomIn={zoomIn} zoomOut={zoomOut} resetZoom={resetZoom} />
 
-      {/* Top bar */}
-      <header className="flex-shrink-0 h-10 bg-emerald-800 flex items-center px-3 gap-3 shadow-md z-30">
-        <Ar className="text-white font-bold text-sm leading-none">عبد الأحد</Ar>
-        <div className="w-px h-4 bg-emerald-600" aria-hidden="true"></div>
-        <span className="text-emerald-200 text-[11px] font-medium truncate">Арабская Грамматика — Уроки 1–13</span>
-        <div className="ml-auto flex items-center gap-2.5 shrink-0">
-          <span className="text-emerald-300 text-[10px]" aria-live="polite">{active}/13</span>
-          <div className="w-20 h-1.5 bg-emerald-700 rounded-full overflow-hidden"
-               role="progressbar" aria-valuenow={active} aria-valuemin={1} aria-valuemax={13}>
-            <div className="h-full bg-emerald-300 rounded-full transition-[width] duration-300"
-                 style={{width:`${(active/13)*100}%`}}></div>
+      <div id="app-shell" className="flex flex-col bg-[#d6d3cd]">
+
+        <header className="flex-shrink-0 h-10 bg-emerald-800 flex items-center px-3 gap-3 shadow-md z-30">
+          <Ar className="text-white font-bold text-sm leading-none">عبد الأحد</Ar>
+          <div className="w-px h-4 bg-emerald-600" aria-hidden="true"></div>
+          <span className="text-emerald-200 text-[11px] font-medium truncate">Арабская Грамматика — Уроки 1–13</span>
+          <div className="ml-auto flex items-center gap-2.5 shrink-0">
+            <span className="text-emerald-300 text-[10px]" aria-live="polite">{active}/13</span>
+            <div className="w-20 h-1.5 bg-emerald-700 rounded-full overflow-hidden"
+                 role="progressbar" aria-valuenow={active} aria-valuemin={1} aria-valuemax={13}>
+              <div className="h-full bg-emerald-300 rounded-full transition-[width] duration-300"
+                   style={{width:`${(active/13)*100}%`}}></div>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Full-width nav pills */}
-      <nav className="nav-strip flex-shrink-0 flex overflow-x-auto gap-1 px-3 py-2 bg-stone-100 border-b border-stone-300/60 z-20"
-           role="tablist" aria-label="Уроки 1–13">
-        {LESSONS.map(l=>(
-          <button key={l.id} onClick={()=>goTo(l.id)}
-            role="tab" aria-selected={active===l.id}
-            aria-label={`Урок ${l.id}`}
-            className={`nav-pill flex-shrink-0 min-w-[1.8rem] h-7 text-[11px] font-bold px-2 rounded-full border touch-manipulation
-              ${active===l.id?'nav-active border-emerald-600':'bg-white text-stone-500 border-stone-200 hover:border-emerald-300 hover:text-emerald-700'}`}>
-            {l.id}
-          </button>
-        ))}
-      </nav>
+        <nav className="nav-strip flex-shrink-0 flex overflow-x-auto gap-1 px-3 py-2 bg-stone-100 border-b border-stone-300/60 z-20"
+             role="tablist" aria-label="Уроки 1–13">
+          {LESSONS.map(l=>(
+            <button key={l.id} onClick={()=>goTo(l.id)}
+              role="tab" aria-selected={active===l.id}
+              aria-label={`Урок ${l.id}`}
+              className={`nav-pill flex-shrink-0 min-w-[1.8rem] h-7 text-[11px] font-bold px-2 rounded-full border touch-manipulation
+                ${active===l.id?'nav-active border-emerald-600':'bg-white text-stone-500 border-stone-200 hover:border-emerald-300 hover:text-emerald-700'}`}>
+              {l.id}
+            </button>
+          ))}
+        </nav>
 
-      {/* Two-column layout */}
-      <div ref={containerRef} className="flex flex-row flex-1 min-h-0 overflow-hidden">
+        {/* ── ANTAGONIST MASKING CONTAINER ── */}
+        <div ref={containerRef} className="relative flex-1 min-h-0 overflow-hidden">
 
-        {/* LEFT */}
-        <div ref={leftColRef} className="flex flex-col min-w-0 bg-[#fdf8f0]" style={{width:'50%',flexShrink:0}}>
-          <div ref={leftRef} className="l-scroll flex-1 overflow-y-auto px-3 py-3" style={{overflowX:'hidden'}}>
-            {LESSONS.map((l,i)=>(
-              <div key={l.id}>
-                <section ref={el=>secRefs.current[l.id]=el} data-lesson={l.id}>
-                  <l.Text />
-                </section>
-                {i<LESSONS.length-1&&<hr className="lesson-hr" aria-hidden="true" />}
-              </div>
-            ))}
-            <div style={{height:48}} aria-hidden="true"></div>
+          {/* LEFT panel (Протагонист - Текст уроков) */}
+          <div className="antagonist-layer layer-left">
+            <div ref={leftRef} className="l-scroll flex-1 min-h-0 overflow-y-auto px-3 py-3" style={{overflowX:'hidden'}}>
+              {LESSONS.map((l,i)=>(
+                <div key={l.id}>
+                  <section ref={el=>secRefs.current[l.id]=el} data-lesson={l.id}>
+                    <l.Text />
+                  </section>
+                  {i<LESSONS.length-1&&<hr className="lesson-hr" aria-hidden="true" />}
+                </div>
+              ))}
+              <div style={{height:48}} aria-hidden="true"></div>
+            </div>
           </div>
-        </div>
 
-        {/* Thin draggable divider */}
-        <div className="col-divider" onPointerDown={onDividerDown}
-             title="Перетащите для изменения ширины" aria-hidden="true"></div>
-
-        {/* RIGHT */}
-        <div className="flex flex-col min-w-0 flex-1 bg-white">
-          <div key={active} className="r-scroll panel-enter flex-1 overflow-y-auto" role="tabpanel">
-            <ActiveInfo />
+          {/* RIGHT panel (Антагонист - Таблицы и схемы) */}
+          {/* Скрывается и открывается с помощью CSS clip-path */}
+          <div className="antagonist-layer layer-right">
+            <div key={active} className="r-scroll panel-enter flex-1 min-h-0 overflow-y-auto px-3 py-3" role="tabpanel">
+              <ActiveInfo />
+            </div>
           </div>
+
+          {/* Divider */}
+          <div className="col-divider" onPointerDown={onDividerDown}
+               title="Перетащите для смещения панелей" aria-hidden="true">
+            <div className="col-divider-line"></div>
+            <div className="col-divider-handle"></div>
+          </div>
+
         </div>
 
       </div>
-    </div>
+    </>
   );
 };
 
@@ -1378,3 +1520,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
+
+
