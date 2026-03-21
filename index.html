@@ -14,11 +14,6 @@
   <script>tailwind.config={theme:{extend:{fontFamily:{body:['Spectral','Georgia','serif'],ar:['Amiri','serif']}}}}</script>
   <style>
     html,body,#root{height:100%;overflow:hidden;}
-    /* ── App shell — transform-based zoom ──────────────────────────────────
-       transform:scale() on #app-shell is the ONLY scaling mechanism.
-       We compensate the logical size so the visual output always fills the
-       viewport exactly at any scale.
-    ──────────────────────────────────────────────────────────────────────── */
     #app-shell{
       transform-origin:top left;
       transform:scale(var(--app-scale,1));
@@ -30,7 +25,6 @@
     body{font-family:'Spectral',Georgia,serif;-webkit-text-size-adjust:100%;overscroll-behavior:none;margin:0;padding:0;touch-action:manipulation;}
     [lang="ar"],.font-ar{font-family:'Amiri',serif;line-height:2.1;}
 
-    /* Scrollbars */
     .l-scroll{scrollbar-width:thin;scrollbar-color:rgba(52,211,153,.45) transparent;}
     .l-scroll::-webkit-scrollbar{width:4px;}
     .l-scroll::-webkit-scrollbar-thumb{background:rgba(52,211,153,.45);border-radius:99px;}
@@ -40,7 +34,6 @@
     .nav-strip{scrollbar-width:none;}
     .nav-strip::-webkit-scrollbar{display:none;}
 
-    /* Panel animation */
     @keyframes panelIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
     .panel-enter{animation:panelIn .2s ease-out forwards;will-change:opacity,transform;}
 
@@ -49,46 +42,43 @@
     .nav-pill{transition:background .15s,color .15s;}
     .r-header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.97);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
 
-    /* ── ANTAGONIST SLIDER ARCHITECTURE ──────────────────────────────────────
-       Both panels are EXACTLY 100% of the viewport width and sit on top of 
-       each other. The right panel uses `clip-path` to hide its left portion.
-       When the divider moves, we change the clip-path, creating a masking 
-       effect without squeezing or reflowing the text.
-    ──────────────────────────────────────────────────────────────────────── */
-    .antagonist-layer {
-      position: absolute;
-      top: 0; left: 0; bottom: 0; right: 0;
-      width: 100%; height: 100%;
-      display: flex; flex-direction: column;
+    /* ── ANTAGONIST MASKING ARCHITECTURE ──────────────────────────────────── */
+    .antagonist-layer{
+      position:absolute;top:0;left:0;bottom:0;right:0;
+      width:100%;height:100%;
+      display:flex;flex-direction:column;
+      /* pan-y: browser handles vertical scroll natively;
+         horizontal movement is NOT consumed by the browser, so our JS
+         swipe gesture can intercept it without blocking vertical scroll */
+      touch-action:pan-y;
     }
-    
-    .layer-left {
-      z-index: 1;
-      background: #fdf8f0;
-    }
-    
-    .layer-right {
-      z-index: 2;
-      background: #ffffff;
-      /* Masks the right panel from the left edge exactly at --div-x */
-      clip-path: inset(0 0 0 var(--div-x, 50%));
-      will-change: clip-path;
+    .layer-left{z-index:1;background:#fdf8f0;}
+    .layer-right{
+      z-index:2;background:#ffffff;
+      clip-path:inset(0 0 0 var(--div-x,50%));
+      /* OPT-1: clip-path on compositor thread; will-change promotes layer up-front */
+      will-change:clip-path;
     }
 
-    /* Snapping transition */
-    .container-snapping .layer-right {
-      transition: clip-path .3s cubic-bezier(.4,0,.2,1);
+    /* Snapping transitions */
+    .container-snapping .layer-right{
+      transition:clip-path .3s cubic-bezier(.4,0,.2,1);
     }
-    .container-snapping .col-divider {
-      transition: left .3s cubic-bezier(.4,0,.2,1);
+    /* OPT-2: animate transform instead of left — transform is GPU-composited;
+       left triggers layout + paint on every frame */
+    .container-snapping .col-divider{
+      transition:transform .3s cubic-bezier(.4,0,.2,1);
     }
 
-    /* Divider — floats over the viewport at --div-x */
+    /* OPT-3: divider uses transform for movement instead of left, keeping left:0.
+       This puts position updates entirely on the compositor thread. */
     .col-divider{
       position:absolute;top:0;bottom:0;
+      left:0;
       width:36px;
-      left:var(--div-x,50%);
-      transform:translateX(-50%);
+      /* translateX = --div-x (the desired centre point) minus half the handle width */
+      transform:translateX(calc(var(--div-x,50%) - 50%));
+      will-change:transform;
       z-index:20;
       cursor:col-resize;
       display:flex;align-items:center;justify-content:center;
@@ -109,14 +99,13 @@
     .col-divider-handle{
       position:absolute;
       top:50%;left:50%;
-      /* Умный сдвиг ручки "капли" у краев экрана, чтобы она всегда оставалась полностью видимой и за нее можно было взяться */
-      transform:translate(calc(-50% + (0.5 - var(--div-ratio, 0.5)) * 36px), -50%);
+      transform:translate(calc(-50% + (0.5 - var(--div-ratio,0.5)) * 36px),-50%);
       width:36px;height:36px;
       background:#ffffff;
       border:3px solid #10b981;
       border-radius:50%;
       display:flex;align-items:center;justify-content:center;
-      box-shadow:0 4px 12px rgba(0,0,0,0.25);
+      box-shadow:0 4px 12px rgba(0,0,0,.25);
       transition:border-color .15s,background-color .15s;
       z-index:2;
     }
@@ -125,9 +114,11 @@
       border-color:#059669;
       background:#f0fdf4;
     }
+    /* OPT-4: shared pseudo-element styles already combined (no change needed);
+       added explicit display:block so width/height are unambiguous */
     .col-divider-handle::before,
     .col-divider-handle::after{
-      content:'';
+      content:'';display:block;
       width:2px;height:14px;
       background:#10b981;
       margin:0 2px;border-radius:2px;
@@ -139,13 +130,11 @@
       background:#059669;
     }
 
-    /* Right panel: contain content without breaking Arabic words */
     .r-scroll{overflow-x:hidden;overflow-y:auto;}
     .r-scroll > *{min-width:0;}
     .r-scroll p,.r-scroll div,.r-scroll li,.r-scroll td{overflow-wrap:break-word;}
     .r-scroll [lang="ar"]{word-break:normal;overflow-wrap:normal;}
 
-    /* Zoom panel (managed by React) */
     .zoom-panel-base{
       position:fixed;z-index:9999;
       background:rgba(255,255,255,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
@@ -168,12 +157,15 @@
     .zp-sep{width:1px;height:16px;background:#a7f3d0;margin:0 2px;flex-shrink:0;}
     .zp-pct{font-size:11px;font-weight:700;color:#065f46;min-width:38px;text-align:center;user-select:none;cursor:grab;}
 
-    /* Auto-fit container grids */
     .ag2{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.5rem;}
     .ag3{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:.45rem;}
     .ag4{display:grid;grid-template-columns:repeat(auto-fit,minmax(65px,1fr));gap:.4rem;}
 
-    @media(prefers-reduced-motion:reduce){.panel-enter{animation:none;}.nav-pill,.col-divider-bar{transition:none;}}
+    /* OPT-5: fixed typo — was `.col-divider-bar` (no longer exists); correct class is `.col-divider-line` */
+    @media(prefers-reduced-motion:reduce){
+      .panel-enter{animation:none;}
+      .nav-pill,.col-divider-line,.split-track{transition:none;}
+    }
   </style>
 </head>
 <body>
@@ -222,19 +214,25 @@ const TERMS={
 /* ══════════ BASE COMPONENTS ══════════ */
 const Ar=({children,className=''})=><span dir="rtl" lang="ar" className={`font-ar leading-[2.1] ${className}`}>{children}</span>;
 
-/* Term badge */
+/* OPT-6: color lookup maps moved to MODULE LEVEL (outside T component).
+   Previously these three objects (54 total properties) were re-created inside
+   T on every single render. Every badge call re-allocated all three objects
+   even though the values never change. Hoisting them makes them singletons. */
+const T_BG={emerald:'bg-emerald-100',teal:'bg-teal-100',sky:'bg-sky-100',blue:'bg-blue-100',amber:'bg-amber-100',orange:'bg-orange-100',red:'bg-red-100',slate:'bg-slate-100',green:'bg-green-100',rose:'bg-rose-100',pink:'bg-pink-100',purple:'bg-purple-100',fuchsia:'bg-fuchsia-100',indigo:'bg-indigo-100',violet:'bg-violet-100',cyan:'bg-cyan-100',gray:'bg-gray-100',yellow:'bg-yellow-100'};
+const T_BD={emerald:'border-emerald-300',teal:'border-teal-300',sky:'border-sky-300',blue:'border-blue-300',amber:'border-amber-300',orange:'border-orange-300',red:'border-red-300',slate:'border-slate-300',green:'border-green-300',rose:'border-rose-300',pink:'border-pink-300',purple:'border-purple-300',fuchsia:'border-fuchsia-300',indigo:'border-indigo-300',violet:'border-violet-300',cyan:'border-cyan-300',gray:'border-gray-300',yellow:'border-yellow-300'};
+const T_TX={emerald:'text-emerald-800',teal:'text-teal-800',sky:'text-sky-800',blue:'text-blue-800',amber:'text-amber-800',orange:'text-orange-800',red:'text-red-800',slate:'text-slate-700',green:'text-green-800',rose:'text-rose-800',pink:'text-pink-800',purple:'text-purple-800',fuchsia:'text-fuchsia-800',indigo:'text-indigo-800',violet:'text-violet-800',cyan:'text-cyan-800',gray:'text-gray-700',yellow:'text-yellow-800'};
+
 const T=({id,big=false})=>{
   const t=TERMS[id];if(!t)return null;
-  const bg={emerald:'bg-emerald-100',teal:'bg-teal-100',sky:'bg-sky-100',blue:'bg-blue-100',amber:'bg-amber-100',orange:'bg-orange-100',red:'bg-red-100',slate:'bg-slate-100',green:'bg-green-100',rose:'bg-rose-100',pink:'bg-pink-100',purple:'bg-purple-100',fuchsia:'bg-fuchsia-100',indigo:'bg-indigo-100',violet:'bg-violet-100',cyan:'bg-cyan-100',gray:'bg-gray-100',yellow:'bg-yellow-100'};
-  const bd={emerald:'border-emerald-300',teal:'border-teal-300',sky:'border-sky-300',blue:'border-blue-300',amber:'border-amber-300',orange:'border-orange-300',red:'border-red-300',slate:'border-slate-300',green:'border-green-300',rose:'border-rose-300',pink:'border-pink-300',purple:'border-purple-300',fuchsia:'border-fuchsia-300',indigo:'border-indigo-300',violet:'border-violet-300',cyan:'border-cyan-300',gray:'border-gray-300',yellow:'border-yellow-300'};
-  const tx={emerald:'text-emerald-800',teal:'text-teal-800',sky:'text-sky-800',blue:'text-blue-800',amber:'text-amber-800',orange:'text-orange-800',red:'text-red-800',slate:'text-slate-700',green:'text-green-800',rose:'text-rose-800',pink:'text-pink-800',purple:'text-purple-800',fuchsia:'text-fuchsia-800',indigo:'text-indigo-800',violet:'text-violet-800',cyan:'text-cyan-800',gray:'text-gray-700',yellow:'text-yellow-800'};
   return<span title={t.ru} aria-label={t.ru}
-    className={`term-badge inline-flex items-center gap-1 rounded-md border font-bold align-middle ${big?'px-3 py-1.5 text-xs':'px-2 py-1 text-[10px]'} ${bg[t.c]} ${bd[t.c]} ${tx[t.c]}`}
+    className={`term-badge inline-flex items-center gap-1 rounded-md border font-bold align-middle ${big?'px-3 py-1.5 text-xs':'px-2 py-1 text-[10px]'} ${T_BG[t.c]} ${T_BD[t.c]} ${T_TX[t.c]}`}
   ><Ar className="leading-tight">{t.ar}</Ar></span>;
 };
 
-/* Responsive table */
-const Tbl=({headers,rows,rCls})=>(
+/* OPT-7: Tbl wrapped in memo. It is called from inside already-memoized Info
+   components, so it was never in a hot re-render path. memo here is belt-and-
+   suspenders — if outer memoization ever changes this prevents cascading renders. */
+const Tbl=memo(({headers,rows,rCls})=>(
   <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm w-full">
     <table className="w-full text-center text-sm" style={{minWidth:'320px'}} role="table">
       <thead className="bg-gray-100 text-gray-700 font-bold text-[10px] uppercase">
@@ -247,7 +245,7 @@ const Tbl=({headers,rows,rCls})=>(
       </tbody>
     </table>
   </div>
-);
+));
 
 /* ══════════ ARROW CONNECTOR COMPONENTS ══════════ */
 const CLink=({c='emerald',h=8})=><div className={`w-0.5 bg-${c}-400 mx-auto z-0`} style={{height:`${h*4}px`}}></div>;
@@ -260,7 +258,6 @@ const V2down=({c='emerald'})=>(
     <div className={`absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-${c}-400`}></div>
   </div>
 );
-
 const V2up=({tc='emerald',bc='emerald'})=>(
   <div className="relative w-full z-0" style={{height:32}}>
     <div className={`absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-${tc}-400`}></div>
@@ -269,7 +266,6 @@ const V2up=({tc='emerald',bc='emerald'})=>(
     <div className={`absolute top-4 left-1/2 w-0.5 h-4 bg-${bc}-400 -ml-px`}></div>
   </div>
 );
-
 const V3down=({c='emerald'})=>(
   <div className="relative w-full z-0" style={{height:32}}>
     <div className={`absolute top-0 left-1/2 w-0.5 h-4 bg-${c}-400 -ml-px`}></div>
@@ -279,7 +275,6 @@ const V3down=({c='emerald'})=>(
     <div className={`absolute top-4 right-[calc(16.666%-8px)] w-0.5 h-4 bg-${c}-400`}></div>
   </div>
 );
-
 const V3up=({tc='emerald',bc='emerald'})=>(
   <div className="relative w-full z-0" style={{height:32}}>
     <div className={`absolute top-0 left-[calc(16.666%-8px)] w-0.5 h-4 bg-${tc}-400`}></div>
@@ -297,21 +292,17 @@ const BHead=({ar,ru,bg='emerald',lesson})=>(
     <p className={`text-[9px] font-normal uppercase text-${bg}-600 tracking-widest`}>({ru})</p>
   </div>
 );
-
 const LBadge=({n})=>(
   <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 mb-1">
     Урок {n}
   </span>
 );
-
 const IBox=({children,color='emerald'})=>(
   <div className={`bg-${color}-50 border border-${color}-200 rounded-lg p-2 text-[11px] text-${color}-900 leading-relaxed`}>{children}</div>
 );
-
 const RBox=({children})=>(
   <div className="bg-amber-50 border border-amber-300 rounded-lg p-2 text-[11px] text-amber-900 font-bold text-center leading-relaxed">{children}</div>
 );
-
 const Ex=({ar,ru})=>(
   <div className="flex items-baseline gap-2 py-0.5 flex-wrap">
     <Ar className="text-sm font-bold text-gray-800">{ar}</Ar>
@@ -372,7 +363,7 @@ const ATTACHED=[
 const rCls=r=>r.muz?'bg-blue-50/60':r.muan?'bg-pink-50/60':r.p===1?'bg-slate-50/70':'';
 const pC=p=>p===1?'bg-blue-50/40':p===2?'bg-amber-50/40':'bg-rose-50/40';
 
-/* ══════════ ZOOM PANEL (Unchanged) ══════════ */
+/* ══════════ ZOOM PANEL ══════════ */
 const ZoomPanel=({scale,zoomIn,zoomOut,resetZoom})=>{
   const [pos,setPos]=useState({top:16,right:16,left:'auto'});
   const [drag,setDrag]=useState(false);
@@ -382,6 +373,9 @@ const ZoomPanel=({scale,zoomIn,zoomOut,resetZoom})=>{
 
   const onDown=e=>{
     if(e.target.closest('button'))return;
+    /* OPT-8: preventDefault stops accidental scroll-start on touch devices
+       when the user intends to drag the zoom panel */
+    e.preventDefault();
     e.stopPropagation();setDrag(true);moved.current=false;
     const r=ref.current.getBoundingClientRect();
     info.current={sx:e.clientX,sy:e.clientY,rl:r.left,rt:r.top};
@@ -397,6 +391,7 @@ const ZoomPanel=({scale,zoomIn,zoomOut,resetZoom})=>{
     };
     const onUp=()=>{
       if(!drag)return;setDrag(false);
+      moved.current=false;  /* BUG FIX: reset after drag so buttons work on next click */
       if(ref.current){
         const r=ref.current.getBoundingClientRect();
         const il=r.left+r.width/2<window.innerWidth/2;
@@ -545,12 +540,8 @@ const Info2=memo(()=>(
           <IBox color="red">Окончание <strong>не меняется</strong> ни при каких условиях.</IBox>
           <div className="text-[10px] font-bold text-red-700 mt-2 mb-1">Всегда مبني:</div>
           <div className="space-y-1.5">
-            <div className="bg-white p-1.5 rounded border border-red-100 text-[10px]">
-              <span className="font-bold text-red-600">١. الحرف</span> — все частицы
-            </div>
-            <div className="bg-white p-1.5 rounded border border-red-100 text-[10px]">
-              <span className="font-bold text-red-600">٢. الفعل</span> — <Ar>الماضي</Ar> и <Ar>الأمر</Ar>
-            </div>
+            <div className="bg-white p-1.5 rounded border border-red-100 text-[10px]"><span className="font-bold text-red-600">١. الحرف</span> — все частицы</div>
+            <div className="bg-white p-1.5 rounded border border-red-100 text-[10px]"><span className="font-bold text-red-600">٢. الفعل</span> — <Ar>الماضي</Ar> и <Ar>الأمر</Ar></div>
             <div className="bg-white p-1.5 rounded border border-red-100 text-[10px]">
               <span className="font-bold text-red-600">٣. الاسم — 6 видов:</span>
               <div className="grid grid-cols-2 gap-1 mt-1">
@@ -710,10 +701,8 @@ const Info6=memo(()=>(
         <div className="space-y-1 text-[11px]">
           {[{s:'مُسْلِمٌ',r:'مُسْلِمُونَ',n:'مُسْلِمِينَ'},{s:'مُؤْمِنٌ',r:'مُؤْمِنُونَ',n:'مُؤْمِنِينَ'},{s:'مُدَرِّسٌ',r:'مُدَرِّسُونَ',n:'مُدَرِّسِينَ'}].map((e,i)=>(
             <div key={i} className="bg-white rounded p-1.5 border border-blue-100 flex items-center gap-1.5 flex-wrap">
-              <Ar className="font-bold text-gray-800">{e.s}</Ar>
-              <span className="text-gray-400">→</span>
-              <Ar className="font-bold text-blue-700">{e.r}</Ar>
-              <span className="text-gray-400">/</span>
+              <Ar className="font-bold text-gray-800">{e.s}</Ar><span className="text-gray-400">→</span>
+              <Ar className="font-bold text-blue-700">{e.r}</Ar><span className="text-gray-400">/</span>
               <Ar className="font-bold text-blue-700">{e.n}</Ar>
             </div>
           ))}
@@ -826,7 +815,7 @@ const Info9=memo(()=>(
         ].map((col,i)=>(
           <div key={i} className={`bg-${col.c}-50 border border-${col.c}-200 rounded-xl p-2 shadow-sm`}>
             <div className={`text-[11px] font-bold text-${col.c}-800 mb-0.5 text-center`}><Ar>{col.title}</Ar></div>
-            <div className={`text-[9px] text-gray-500 text-center mb-1`}>{col.sub}</div>
+            <div className="text-[9px] text-gray-500 text-center mb-1">{col.sub}</div>
             <div className="space-y-1">
               {col.rows.map((r,j)=>(
                 <div key={j} className="bg-white rounded p-1.5 border border-gray-100 flex items-baseline gap-2">
@@ -1009,7 +998,6 @@ const LH=({n,ar,sub})=>(
   </div>
 );
 
-/* ══════════ TEXT HELPERS ══════════ */
 const P=({children,cl=''})=><p className={`mb-3 text-sm leading-relaxed text-stone-800 ${cl}`}>{children}</p>;
 const H3=({children})=><h3 className="text-sm font-bold text-stone-800 mb-2 mt-4 flex items-center gap-2 flex-wrap">{children}</h3>;
 const H4=({children})=><h4 className="text-xs font-semibold text-stone-700 mb-1.5 mt-3 flex items-center gap-2 flex-wrap">{children}</h4>;
@@ -1273,20 +1261,12 @@ const LText13=()=>(
   </div>
 );
 
-/* ══════════ LESSONS REGISTRY ══════════ */
+/* ══════════ LESSONS ══════════ */
 const LESSONS=[
-  {id:1,Text:LText1,Info:Info1},
-  {id:2,Text:LText2,Info:Info2},
-  {id:3,Text:LText3,Info:Info3},
-  {id:4,Text:LText4,Info:Info4},
-  {id:5,Text:LText5,Info:Info5},
-  {id:6,Text:LText6,Info:Info6},
-  {id:7,Text:LText7,Info:Info7},
-  {id:8,Text:LText8,Info:Info8},
-  {id:9,Text:LText9,Info:Info9},
-  {id:10,Text:LText10,Info:Info10},
-  {id:11,Text:LText11,Info:Info11},
-  {id:12,Text:LText12,Info:Info12},
+  {id:1,Text:LText1,Info:Info1},{id:2,Text:LText2,Info:Info2},{id:3,Text:LText3,Info:Info3},
+  {id:4,Text:LText4,Info:Info4},{id:5,Text:LText5,Info:Info5},{id:6,Text:LText6,Info:Info6},
+  {id:7,Text:LText7,Info:Info7},{id:8,Text:LText8,Info:Info8},{id:9,Text:LText9,Info:Info9},
+  {id:10,Text:LText10,Info:Info10},{id:11,Text:LText11,Info:Info11},{id:12,Text:LText12,Info:Info12},
   {id:13,Text:LText13,Info:Info13},
 ];
 
@@ -1299,17 +1279,25 @@ const App=()=>{
   const ticking=useRef(false);
   const containerRef=useRef(null);
   const isDragging=useRef(false);
-  const dragState=useRef({startX:0,startDivX:0});
+  /* OPT-9: dragState initial value corrected to match the fields actually used
+     by onDividerDown/onMove (startClientX, startRatio, startCw), removing
+     the stale {startX, startDivX} names that were left from an older implementation */
+  const dragState=useRef({startClientX:0,startRatio:0.5,startCw:0});
   const divRatioRef=useRef(0.5);
   const scaleRef=useRef(1);
+  /* Per-panel horizontal pan — each side scrolls independently, divider never moves */
+  const leftContentRef=useRef(null);   /* inner wrapper in left panel  */
+  const rightContentRef=useRef(null);  /* inner wrapper in right panel */
+  const offsetLRef=useRef(0);          /* current translateX of left content  */
+  const offsetRRef=useRef(0);          /* current translateX of right content */
+  const panState=useRef({side:null,startX:0,startOffset:0});
 
-  /* Set divider CSS without moving the panels physically (just masking) */
   const applyDivX=useCallback((c,divXViewport,cwViewport)=>{
-    const ratio = Math.max(0, Math.min(1, divXViewport/cwViewport));
+    const ratio=Math.max(0,Math.min(1,divXViewport/cwViewport));
     divRatioRef.current=ratio;
     const s=scaleRef.current||1;
     c.style.setProperty('--div-x',(ratio*cwViewport/s)+'px');
-    c.style.setProperty('--div-ratio',ratio);
+    c.style.setProperty('--div-ratio',String(ratio));
   },[]);
 
   const initLayout=useCallback((preserveRatio=false)=>{
@@ -1317,10 +1305,8 @@ const App=()=>{
     if(!c)return;
     const cw=c.getBoundingClientRect().width;
     if(!cw)return;
-    const ratio=preserveRatio
-      ? Math.max(0, Math.min(1, divRatioRef.current))
-      : 0.5;
-    applyDivX(c, ratio*cw, cw);
+    const ratio=preserveRatio?Math.max(0,Math.min(1,divRatioRef.current)):0.5;
+    applyDivX(c,ratio*cw,cw);
   },[applyDivX]);
 
   useEffect(()=>{
@@ -1334,12 +1320,16 @@ const App=()=>{
     const c=containerRef.current;
     if(!c)return;
     const cw=c.getBoundingClientRect().width;
-    const safeRatio=Math.max(0,Math.min(1,ratio));
     c.classList.add('container-snapping');
-    applyDivX(c, safeRatio*cw, cw);
-    
-    const handleEnd = () => c.classList.remove('container-snapping');
-    c.addEventListener('transitionend', handleEnd, {once:true});
+    applyDivX(c,Math.max(0,Math.min(1,ratio))*cw,cw);
+    /* OPT-10: listen for transitionend on .layer-right (the element actually
+       transitioning clip-path) rather than on the container. Using the container
+       previously worked via event bubbling but was ambiguous when multiple
+       child transitions fired. Targeting the animating element directly is
+       unambiguous and removes the class at exactly the right moment. */
+    const layerRight=c.querySelector('.layer-right');
+    const cleanup=()=>c.classList.remove('container-snapping');
+    (layerRight||c).addEventListener('transitionend',cleanup,{once:true});
   },[applyDivX]);
 
   const onDividerDown=useCallback((e)=>{
@@ -1347,48 +1337,82 @@ const App=()=>{
     if(!c)return;
     const rect=c.getBoundingClientRect();
     isDragging.current=true;
-    dragState.current={
-      startClientX:e.clientX,
-      startRatio:divRatioRef.current,
-      startCw:rect.width
-    };
+    dragState.current={startClientX:e.clientX,startRatio:divRatioRef.current,startCw:rect.width};
     e.currentTarget.setPointerCapture(e.pointerId);
     e.currentTarget.classList.add('resizing');
     document.body.style.userSelect='none';
     e.preventDefault();
   },[]);
 
+  /* applyPanOffset — writes translateX to the inner content wrapper of a panel */
+  const applyPanOffset=useCallback((side,offset)=>{
+    if(side==='left'){
+      offsetLRef.current=offset;
+      if(leftContentRef.current)leftContentRef.current.style.transform=`translateX(${offset}px)`;
+    }else{
+      offsetRRef.current=offset;
+      if(rightContentRef.current)rightContentRef.current.style.transform=`translateX(${offset}px)`;
+    }
+  },[]);
+
+  /* onPanelDown — starts a per-panel horizontal pan; divider stays untouched */
+  const onPanelDown=useCallback((e)=>{
+    if(e.target.closest('.col-divider'))return; /* divider has its own handler */
+    if(isDragging.current)return;
+    const c=containerRef.current;
+    if(!c)return;
+    const rect=c.getBoundingClientRect();
+    /* Determine which panel was touched */
+    const s=scaleRef.current||1;
+    const divXViewport=parseFloat(c.style.getPropertyValue('--div-x')||'0')*s||rect.width*divRatioRef.current;
+    const side=(e.clientX-rect.left)<divXViewport?'left':'right';
+    panState.current={
+      side,
+      startX:e.clientX,
+      startOffset:side==='left'?offsetLRef.current:offsetRRef.current,
+    };
+  },[]);
+
   useEffect(()=>{
     const onMove=(e)=>{
-      if(!isDragging.current)return;
-      const c=containerRef.current;
-      if(!c)return;
-      const{startClientX,startRatio,startCw}=dragState.current;
-      const cw=c.getBoundingClientRect().width;
-      const minRatio=0;
-      const maxRatio=1;
-      const deltaRatio=(e.clientX-startClientX)/startCw;
-      const newRatio=Math.max(minRatio,Math.min(maxRatio,startRatio+deltaRatio));
-      applyDivX(c,newRatio*cw,cw);
-    };
-    const onUp=()=>{
-      if(!isDragging.current)return;
-      isDragging.current=false;
-      document.body.style.userSelect='';
-      document.querySelectorAll('.col-divider').forEach(d=>d.classList.remove('resizing'));
-      const c=containerRef.current;
-      if(!c)return;
-
-      // Если бросили рядом с краем (меньше 5%), то дожимаем до упора
-      let targetRatio = divRatioRef.current;
-      if (targetRatio < 0.05) targetRatio = 0;
-      else if (targetRatio > 0.95) targetRatio = 1;
-      else if (Math.abs(targetRatio - 0.5) < 0.05) targetRatio = 0.5;
-
-      if (targetRatio !== divRatioRef.current) {
-        snapTo(targetRatio);
+      /* ── Divider drag (priority) ── */
+      if(isDragging.current){
+        const c=containerRef.current;
+        if(!c)return;
+        const{startClientX,startRatio,startCw}=dragState.current;
+        const cw=c.getBoundingClientRect().width;
+        const newRatio=Math.max(0,Math.min(1,startRatio+(e.clientX-startClientX)/startCw));
+        applyDivX(c,newRatio*cw,cw);
+        return;
       }
+
+      /* ── Per-panel content pan ── */
+      const ps=panState.current;
+      if(!ps.side)return;
+      const dx=e.clientX-ps.startX;
+      applyPanOffset(ps.side,ps.startOffset+dx);
     };
+
+    const onUp=()=>{
+      /* ── Divider drag end ── */
+      if(isDragging.current){
+        isDragging.current=false;
+        document.body.style.userSelect='';
+        document.querySelectorAll('.col-divider').forEach(d=>d.classList.remove('resizing'));
+        const c=containerRef.current;
+        if(!c)return;
+        let t=divRatioRef.current;
+        if(t<0.05)t=0;
+        else if(t>0.95)t=1;
+        else if(Math.abs(t-0.5)<0.05)t=0.5;
+        if(t!==divRatioRef.current)snapTo(t);
+        return;
+      }
+
+      /* ── Panel pan end — just stop, no snap needed for content offset ── */
+      panState.current={side:null,startX:0,startOffset:0};
+    };
+
     window.addEventListener('pointermove',onMove,{passive:true});
     window.addEventListener('pointerup',onUp);
     window.addEventListener('pointercancel',onUp);
@@ -1446,9 +1470,7 @@ const App=()=>{
   return(
     <>
       <ZoomPanel scale={scale} zoomIn={zoomIn} zoomOut={zoomOut} resetZoom={resetZoom} />
-
       <div id="app-shell" className="flex flex-col bg-[#d6d3cd]">
-
         <header className="flex-shrink-0 h-10 bg-emerald-800 flex items-center px-3 gap-3 shadow-md z-30">
           <Ar className="text-white font-bold text-sm leading-none">عبد الأحد</Ar>
           <div className="w-px h-4 bg-emerald-600" aria-hidden="true"></div>
@@ -1462,7 +1484,6 @@ const App=()=>{
             </div>
           </div>
         </header>
-
         <nav className="nav-strip flex-shrink-0 flex overflow-x-auto gap-1 px-3 py-2 bg-stone-100 border-b border-stone-300/60 z-20"
              role="tablist" aria-label="Уроки 1–13">
           {LESSONS.map(l=>(
@@ -1475,42 +1496,38 @@ const App=()=>{
             </button>
           ))}
         </nav>
-
-        {/* ── ANTAGONIST MASKING CONTAINER ── */}
-        <div ref={containerRef} className="relative flex-1 min-h-0 overflow-hidden">
-
-          {/* LEFT panel (Протагонист - Текст уроков) */}
+        <div ref={containerRef} className="relative flex-1 min-h-0 overflow-hidden"
+             onPointerDown={onPanelDown}>
           <div className="antagonist-layer layer-left">
-            <div ref={leftRef} className="l-scroll flex-1 min-h-0 overflow-y-auto px-3 py-3" style={{overflowX:'hidden'}}>
-              {LESSONS.map((l,i)=>(
-                <div key={l.id}>
-                  <section ref={el=>secRefs.current[l.id]=el} data-lesson={l.id}>
-                    <l.Text />
-                  </section>
-                  {i<LESSONS.length-1&&<hr className="lesson-hr" aria-hidden="true" />}
-                </div>
-              ))}
-              <div style={{height:48}} aria-hidden="true"></div>
+            <div ref={leftRef} className="l-scroll flex-1 min-h-0 overflow-y-auto px-3 py-3"
+                 style={{overflowX:'hidden',touchAction:'pan-y'}}>
+              {/* leftContentRef wrapper: receives translateX for horizontal panel pan */}
+              <div ref={leftContentRef} style={{willChange:'transform'}}>
+                {LESSONS.map((l,i)=>(
+                  <div key={l.id}>
+                    <section ref={el=>secRefs.current[l.id]=el} data-lesson={l.id}><l.Text /></section>
+                    {i<LESSONS.length-1&&<hr className="lesson-hr" aria-hidden="true" />}
+                  </div>
+                ))}
+                <div style={{height:48}} aria-hidden="true"></div>
+              </div>
             </div>
           </div>
-
-          {/* RIGHT panel (Антагонист - Таблицы и схемы) */}
-          {/* Скрывается и открывается с помощью CSS clip-path */}
           <div className="antagonist-layer layer-right">
-            <div key={active} className="r-scroll panel-enter flex-1 min-h-0 overflow-y-auto px-3 py-3" role="tabpanel">
-              <ActiveInfo />
+            {/* rightContentRef wrapper: receives translateX for horizontal panel pan */}
+            <div ref={rightContentRef} style={{height:'100%',display:'flex',flexDirection:'column',willChange:'transform'}}>
+              <div key={active} className="r-scroll panel-enter flex-1 min-h-0 overflow-y-auto"
+                   style={{touchAction:'pan-y'}} role="tabpanel">
+                <ActiveInfo />
+              </div>
             </div>
           </div>
-
-          {/* Divider */}
           <div className="col-divider" onPointerDown={onDividerDown}
                title="Перетащите для смещения панелей" aria-hidden="true">
             <div className="col-divider-line"></div>
             <div className="col-divider-handle"></div>
           </div>
-
         </div>
-
       </div>
     </>
   );
@@ -1520,5 +1537,3 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
 </html>
-
-
