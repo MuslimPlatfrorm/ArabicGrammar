@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-  <title>Арабская Грамматика — عبد الأحد</title>
+  <title>Арабская Грамматика</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -40,43 +40,32 @@
     .lesson-hr{border:none;height:2px;background:linear-gradient(to right,transparent,#6ee7b7 30%,#6ee7b7 70%,transparent);margin:2rem 0;}
     .nav-active{background:#059669;color:#fff;box-shadow:0 1px 6px rgba(5,150,105,.35);}
     .nav-pill{transition:background .15s,color .15s;}
-    .r-header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.97);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+    .r-header{position:relative;z-index:10;}
 
     /* ── ANTAGONIST MASKING ARCHITECTURE ──────────────────────────────────── */
     .antagonist-layer{
       position:absolute;top:0;left:0;bottom:0;right:0;
       width:100%;height:100%;
       display:flex;flex-direction:column;
-      /* pan-y: browser handles vertical scroll natively;
-         horizontal movement is NOT consumed by the browser, so our JS
-         swipe gesture can intercept it without blocking vertical scroll */
       touch-action:pan-y;
     }
     .layer-left{z-index:1;background:#fdf8f0;}
     .layer-right{
       z-index:2;background:#ffffff;
       clip-path:inset(0 0 0 var(--div-x,50%));
-      /* OPT-1: clip-path on compositor thread; will-change promotes layer up-front */
       will-change:clip-path;
     }
 
-    /* Snapping transitions */
     .container-snapping .layer-right{
       transition:clip-path .3s cubic-bezier(.4,0,.2,1);
     }
-    /* OPT-2: animate transform instead of left — transform is GPU-composited;
-       left triggers layout + paint on every frame */
     .container-snapping .col-divider{
       transition:transform .3s cubic-bezier(.4,0,.2,1);
     }
 
-    /* OPT-3: divider uses transform for movement instead of left, keeping left:0.
-       This puts position updates entirely on the compositor thread. */
     .col-divider{
-      position:absolute;top:0;bottom:0;
-      left:0;
+      position:absolute;top:0;bottom:0;left:0;
       width:36px;
-      /* translateX = --div-x (the desired centre point) minus half the handle width */
       transform:translateX(calc(var(--div-x,50%) - 50%));
       will-change:transform;
       z-index:20;
@@ -91,9 +80,8 @@
       transition:width .15s,background .15s;
       pointer-events:none;
     }
-    .col-divider:hover .col-divider-line,
     .col-divider.resizing .col-divider-line{
-      width:8px;
+      width:6px;
       background:linear-gradient(to bottom,#34d399,#059669 50%,#34d399);
     }
     .col-divider-handle{
@@ -109,13 +97,10 @@
       transition:border-color .15s,background-color .15s;
       z-index:2;
     }
-    .col-divider:hover .col-divider-handle,
     .col-divider.resizing .col-divider-handle{
       border-color:#059669;
       background:#f0fdf4;
     }
-    /* OPT-4: shared pseudo-element styles already combined (no change needed);
-       added explicit display:block so width/height are unambiguous */
     .col-divider-handle::before,
     .col-divider-handle::after{
       content:'';display:block;
@@ -123,11 +108,24 @@
       background:#10b981;
       margin:0 2px;border-radius:2px;
     }
-    .col-divider:hover .col-divider-handle::before,
-    .col-divider:hover .col-divider-handle::after,
     .col-divider.resizing .col-divider-handle::before,
     .col-divider.resizing .col-divider-handle::after{
       background:#059669;
+    }
+    
+    @media (hover: hover) and (pointer: fine) {
+      .col-divider:hover .col-divider-line {
+        width:6px;
+        background:linear-gradient(to bottom,#34d399,#059669 50%,#34d399);
+      }
+      .col-divider:hover .col-divider-handle {
+        border-color:#059669;
+        background:#f0fdf4;
+      }
+      .col-divider:hover .col-divider-handle::before,
+      .col-divider:hover .col-divider-handle::after {
+        background:#059669;
+      }
     }
 
     .r-scroll{overflow-x:hidden;overflow-y:auto;}
@@ -161,7 +159,6 @@
     .ag3{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:.45rem;}
     .ag4{display:grid;grid-template-columns:repeat(auto-fit,minmax(65px,1fr));gap:.4rem;}
 
-    /* OPT-5: fixed typo — was `.col-divider-bar` (no longer exists); correct class is `.col-divider-line` */
     @media(prefers-reduced-motion:reduce){
       .panel-enter{animation:none;}
       .nav-pill,.col-divider-line,.split-track{transition:none;}
@@ -214,10 +211,6 @@ const TERMS={
 /* ══════════ BASE COMPONENTS ══════════ */
 const Ar=({children,className=''})=><span dir="rtl" lang="ar" className={`font-ar leading-[2.1] ${className}`}>{children}</span>;
 
-/* OPT-6: color lookup maps moved to MODULE LEVEL (outside T component).
-   Previously these three objects (54 total properties) were re-created inside
-   T on every single render. Every badge call re-allocated all three objects
-   even though the values never change. Hoisting them makes them singletons. */
 const T_BG={emerald:'bg-emerald-100',teal:'bg-teal-100',sky:'bg-sky-100',blue:'bg-blue-100',amber:'bg-amber-100',orange:'bg-orange-100',red:'bg-red-100',slate:'bg-slate-100',green:'bg-green-100',rose:'bg-rose-100',pink:'bg-pink-100',purple:'bg-purple-100',fuchsia:'bg-fuchsia-100',indigo:'bg-indigo-100',violet:'bg-violet-100',cyan:'bg-cyan-100',gray:'bg-gray-100',yellow:'bg-yellow-100'};
 const T_BD={emerald:'border-emerald-300',teal:'border-teal-300',sky:'border-sky-300',blue:'border-blue-300',amber:'border-amber-300',orange:'border-orange-300',red:'border-red-300',slate:'border-slate-300',green:'border-green-300',rose:'border-rose-300',pink:'border-pink-300',purple:'border-purple-300',fuchsia:'border-fuchsia-300',indigo:'border-indigo-300',violet:'border-violet-300',cyan:'border-cyan-300',gray:'border-gray-300',yellow:'border-yellow-300'};
 const T_TX={emerald:'text-emerald-800',teal:'text-teal-800',sky:'text-sky-800',blue:'text-blue-800',amber:'text-amber-800',orange:'text-orange-800',red:'text-red-800',slate:'text-slate-700',green:'text-green-800',rose:'text-rose-800',pink:'text-pink-800',purple:'text-purple-800',fuchsia:'text-fuchsia-800',indigo:'text-indigo-800',violet:'text-violet-800',cyan:'text-cyan-800',gray:'text-gray-700',yellow:'text-yellow-800'};
@@ -225,13 +218,10 @@ const T_TX={emerald:'text-emerald-800',teal:'text-teal-800',sky:'text-sky-800',b
 const T=({id,big=false})=>{
   const t=TERMS[id];if(!t)return null;
   return<span title={t.ru} aria-label={t.ru}
-    className={`term-badge inline-flex items-center gap-1 rounded-md border font-bold align-middle ${big?'px-3 py-1.5 text-xs':'px-2 py-1 text-[10px]'} ${T_BG[t.c]} ${T_BD[t.c]} ${T_TX[t.c]}`}
+    className={`term-badge inline-flex items-center gap-1 rounded-md border font-bold align-middle ${big?'px-3 py-1.5 text-xs':'px-1.5 py-0.5 text-[11px]'} ${T_BG[t.c]} ${T_BD[t.c]} ${T_TX[t.c]}`}
   ><Ar className="leading-tight">{t.ar}</Ar></span>;
 };
 
-/* OPT-7: Tbl wrapped in memo. It is called from inside already-memoized Info
-   components, so it was never in a hot re-render path. memo here is belt-and-
-   suspenders — if outer memoization ever changes this prevents cascading renders. */
 const Tbl=memo(({headers,rows,rCls})=>(
   <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm w-full">
     <table className="w-full text-center text-sm" style={{minWidth:'320px'}} role="table">
@@ -314,54 +304,54 @@ const Ex=({ar,ru})=>(
 const PAST=[
   {pr:'أَنَا',ru:'Я',verb:'ذَهَبْتُ',rule:'+تُ',more:'قَرَأْتُ',p:1},
   {pr:'نَحْنُ',ru:'Мы',verb:'ذَهَبْنَا',rule:'+نَا',more:'قَرَأْنَا',p:1},
-  {pr:'أَنْتَ',ru:'Ты (м)',verb:'ذَهَبْتَ',rule:'+تَ',more:'قَرَأْتَ',p:2},
-  {pr:'أَنْتِ',ru:'Ты (ж)',verb:'ذَهَبْتِ',rule:'+تِ',more:'قَرَأْتِ',p:2},
+  {pr:'أَنْتَ',ru:'Ты (м.р.)',verb:'ذَهَبْتَ',rule:'+تَ',more:'قَرَأْتَ',p:2},
+  {pr:'أَنْتِ',ru:'Ты (ж.р.)',verb:'ذَهَبْتِ',rule:'+تِ',more:'قَرَأْتِ',p:2},
   {pr:'أَنْتُمَا',ru:'Вы двое',verb:'ذَهَبْتُمَا',rule:'+تُمَا',more:'قَرَأْتُمَا',p:2},
-  {pr:'أَنْتُمْ',ru:'Вы (м)',verb:'ذَهَبْتُمْ',rule:'+تُمْ',more:'قَرَأْتُمْ',p:2,muz:true},
-  {pr:'أَنْتُنَّ',ru:'Вы (ж)',verb:'ذَهَبْتُنَّ',rule:'+تُنَّ',more:'قَرَأْتُنَّ',p:2,muan:true},
+  {pr:'أَنْتُمْ',ru:'Вы (м.р.)',verb:'ذَهَبْتُمْ',rule:'+تُمْ',more:'قَرَأْتُمْ',p:2,muz:true},
+  {pr:'أَنْتُنَّ',ru:'Вы (ж.р.)',verb:'ذَهَبْتُنَّ',rule:'+تُنَّ',more:'قَرَأْتُنَّ',p:2,muan:true},
   {pr:'هُوَ',ru:'Он',verb:'ذَهَبَ',rule:'основа',more:'قَرَأَ — أَكَلَ',p:3,muz:true},
   {pr:'هِيَ',ru:'Она',verb:'ذَهَبَتْ',rule:'+تْ',more:'قَرَأَتْ',p:3,muan:true},
   {pr:'هُمَا',ru:'Они 2',verb:'ذَهَبَا',rule:'+ا',more:'سَكَنَا',p:3},
-  {pr:'هُمْ',ru:'Они (м)',verb:'ذَهَبُوا',rule:'+وا',more:'قَرَأُوا',p:3,muz:true},
-  {pr:'هُنَّ',ru:'Они (ж)',verb:'ذَهَبْنَ',rule:'+نَ',more:'قَرَأْنَ',p:3,muan:true},
+  {pr:'هُمْ',ru:'Они (м.р.)',verb:'ذَهَبُوا',rule:'+وا',more:'قَرَأُوا',p:3,muz:true},
+  {pr:'هُنَّ',ru:'Они (ж.р.)',verb:'ذَهَبْنَ',rule:'+نَ',more:'قَرَأْنَ',p:3,muan:true},
 ];
 const PRESENT=[
   {pr:'أَنَا',ru:'Я',verb:'أَذْهَبُ',rule:'أَ+',more:'أَقْرَأُ — آكُلُ',p:1},
   {pr:'نَحْنُ',ru:'Мы',verb:'نَذْهَبُ',rule:'نَ+',more:'نَقْرَأُ',p:1},
-  {pr:'أَنْتَ',ru:'Ты (м)',verb:'تَذْهَبُ',rule:'تَ+',more:'تَقْرَأُ',p:2,muz:true},
-  {pr:'أَنْتِ',ru:'Ты (ж)',verb:'تَذْهَبِينَ',rule:'تَ++ينَ',more:'',p:2,muan:true},
-  {pr:'أَنْتُمَا',ru:'Вы двое',verb:'تَذْهَبَانِ',rule:'تَ++انِ',more:'',p:2},
-  {pr:'أَنْتُمْ',ru:'Вы (м)',verb:'تَذْهَبُونَ',rule:'تَ++ونَ',more:'',p:2,muz:true},
-  {pr:'أَنْتُنَّ',ru:'Вы (ж)',verb:'تَذْهَبْنَ',rule:'تَ++نَ',more:'',p:2,muan:true},
+  {pr:'أَنْتَ',ru:'Ты (м.р.)',verb:'تَذْهَبُ',rule:'تَ+',more:'تَقْرَأُ',p:2,muz:true},
+  {pr:'أَنْتِ',ru:'Ты (ж.р.)',verb:'تَذْهَبِينَ',rule:'تَـ...ـِينَ',more:'',p:2,muan:true},
+  {pr:'أَنْتُمَا',ru:'Вы двое',verb:'تَذْهَبَانِ',rule:'تَـ...ـَانِ',more:'',p:2},
+  {pr:'أَنْتُمْ',ru:'Вы (м.р.)',verb:'تَذْهَبُونَ',rule:'تَـ...ـُونَ',more:'',p:2,muz:true},
+  {pr:'أَنْتُنَّ',ru:'Вы (ж.р.)',verb:'تَذْهَبْنَ',rule:'تَـ...ـْنَ',more:'',p:2,muan:true},
   {pr:'هُوَ',ru:'Он',verb:'يَذْهَبُ',rule:'يَ+',more:'يَقْرَأُ',p:3,muz:true},
   {pr:'هِيَ',ru:'Она',verb:'تَذْهَبُ',rule:'تَ+',more:'',p:3,muan:true},
-  {pr:'هُمَا',ru:'Они 2',verb:'يَذْهَبَانِ',rule:'يَ++انِ',more:'',p:3},
-  {pr:'هُمْ',ru:'Они (м)',verb:'يَذْهَبُونَ',rule:'يَ++ونَ',more:'',p:3,muz:true},
-  {pr:'هُنَّ',ru:'Они (ж)',verb:'يَذْهَبْنَ',rule:'يَ++نَ',more:'',p:3,muan:true},
+  {pr:'هُمَا',ru:'Они 2',verb:'يَذْهَبَانِ',rule:'يَـ...ـَانِ',more:'',p:3},
+  {pr:'هُمْ',ru:'Они (м.р.)',verb:'يَذْهَبُونَ',rule:'يَـ...ـُونَ',more:'',p:3,muz:true},
+  {pr:'هُنَّ',ru:'Они (ж.р.)',verb:'يَذْهَبْنَ',rule:'يَـ...ـْنَ',more:'',p:3,muan:true},
 ];
 const IMPERATIVE=[
-  {pr:'أَنْتَ',ru:'Ты (м)',verb:'اِذْهَبْ',note:'основа',muz:true},
-  {pr:'أَنْتِ',ru:'Ты (ж)',verb:'اِذْهَبِي',note:'+ي',muan:true},
+  {pr:'أَنْتَ',ru:'Ты (м.р.)',verb:'اِذْهَبْ',note:'основа',muz:true},
+  {pr:'أَنْتِ',ru:'Ты (ж.р.)',verb:'اِذْهَبِي',note:'+ي',muan:true},
   {pr:'أَنْتُمَا',ru:'Вы двое',verb:'اِذْهَبَا',note:'+ا'},
-  {pr:'أَنْتُمْ',ru:'Вы (м)',verb:'اِذْهَبُوا',note:'+وا',muz:true},
-  {pr:'أَنْتُنَّ',ru:'Вы (ж)',verb:'—',note:'—',muan:true},
+  {pr:'أَنْتُمْ',ru:'Вы (м.р.)',verb:'اِذْهَبُوا',note:'+وا',muz:true},
+  {pr:'أَنْتُنَّ',ru:'Вы (ж.р.)',verb:'—',note:'—',muan:true},
 ];
 const ATTACHED=[
   {pr:'أَنَا',ru:'Я/Мой',suf:'ي / ني',ism:'كِتَابِي',hf:'فِيَّ — إِلَيَّ',p:1},
   {pr:'نَحْنُ',ru:'Мы/Наш',suf:'نَا',ism:'كِتَابُنَا',hf:'فِينَا',p:1},
-  {pr:'أَنْتَ',ru:'Ты (м)',suf:'كَ',ism:'كِتَابُكَ',hf:'فِيكَ — عَلَيْكَ',p:2,muz:true},
-  {pr:'أَنْتِ',ru:'Ты (ж)',suf:'كِ',ism:'كِتَابُكِ',hf:'فِيكِ',p:2,muan:true},
+  {pr:'أَنْتَ',ru:'Ты (м.р.)',suf:'كَ',ism:'كِتَابُكَ',hf:'فِيكَ — عَلَيْكَ',p:2,muz:true},
+  {pr:'أَنْتِ',ru:'Ты (ж.р.)',suf:'كِ',ism:'كِتَابُكِ',hf:'فِيكِ',p:2,muan:true},
   {pr:'أَنْتُمَا',ru:'Вы двое',suf:'كُمَا',ism:'كِتَابُكُمَا',hf:'فِيكُمَا',p:2},
-  {pr:'أَنْتُمْ',ru:'Вы (м)',suf:'كُمْ',ism:'كِتَابُكُمْ',hf:'فِيكُمْ — عَلَيْكُمْ',p:2,muz:true},
-  {pr:'أَنْتُنَّ',ru:'Вы (ж)',suf:'كُنَّ',ism:'كِتَابُكُنَّ',hf:'فِيكُنَّ',p:2,muan:true},
+  {pr:'أَنْتُمْ',ru:'Вы (м.р.)',suf:'كُمْ',ism:'كِتَابُكُمْ',hf:'فِيكُمْ — عَلَيْكُمْ',p:2,muz:true},
+  {pr:'أَنْتُنَّ',ru:'Вы (ж.р.)',suf:'كُنَّ',ism:'كِتَابُكُنَّ',hf:'فِيكُنَّ',p:2,muan:true},
   {pr:'هُوَ',ru:'Он/Его',suf:'هُ / هِ',ism:'كِتَابُهُ',hf:'فِيهِ — بِهِ',p:3,muz:true},
   {pr:'هِيَ',ru:'Она/Её',suf:'هَا',ism:'كِتَابُهَا',hf:'فِيهَا',p:3,muan:true},
   {pr:'هُمَا',ru:'Они 2',suf:'هُمَا',ism:'كِتَابُهُمَا',hf:'—',p:3},
-  {pr:'هُمْ',ru:'Они (м)',suf:'هُمْ',ism:'كِتَابُهُمْ',hf:'—',p:3,muz:true},
-  {pr:'هُنَّ',ru:'Они (ж)',suf:'هُنَّ',ism:'كِتَابُهُنَّ',hf:'—',p:3,muan:true},
+  {pr:'هُمْ',ru:'Они (м.р.)',suf:'هُمْ',ism:'كِتَابُهُمْ',hf:'—',p:3,muz:true},
+  {pr:'هُنَّ',ru:'Они (ж.р.)',suf:'هُنَّ',ism:'كِتَابُهُنَّ',hf:'—',p:3,muan:true},
 ];
-const rCls=r=>r.muz?'bg-blue-50/60':r.muan?'bg-pink-50/60':r.p===1?'bg-slate-50/70':'';
-const pC=p=>p===1?'bg-blue-50/40':p===2?'bg-amber-50/40':'bg-rose-50/40';
+const rCls=r=>r.muz?'bg-blue-50':r.muan?'bg-pink-50':r.p===1?'bg-slate-50':'';
+const pC=p=>p===1?'bg-blue-50':p===2?'bg-amber-50':'bg-rose-50';
 
 /* ══════════ ZOOM PANEL ══════════ */
 const ZoomPanel=({scale,zoomIn,zoomOut,resetZoom})=>{
@@ -373,8 +363,6 @@ const ZoomPanel=({scale,zoomIn,zoomOut,resetZoom})=>{
 
   const onDown=e=>{
     if(e.target.closest('button'))return;
-    /* OPT-8: preventDefault stops accidental scroll-start on touch devices
-       when the user intends to drag the zoom panel */
     e.preventDefault();
     e.stopPropagation();setDrag(true);moved.current=false;
     const r=ref.current.getBoundingClientRect();
@@ -391,7 +379,7 @@ const ZoomPanel=({scale,zoomIn,zoomOut,resetZoom})=>{
     };
     const onUp=()=>{
       if(!drag)return;setDrag(false);
-      moved.current=false;  /* BUG FIX: reset after drag so buttons work on next click */
+      moved.current=false; 
       if(ref.current){
         const r=ref.current.getBoundingClientRect();
         const il=r.left+r.width/2<window.innerWidth/2;
@@ -450,14 +438,11 @@ const Info1=memo(()=>(
   <div className="p-3 space-y-0 flex flex-col items-center">
     <PH n="1" ar="الْكَلِمَةُ — أَقْسَامُ الْكَلَامِ" sub="Слово и его виды" />
     <div className="w-full p-3 space-y-2">
-      <div className="w-full flex justify-center">
-        <div className="w-0.5 h-4 bg-emerald-400"></div>
+      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2 text-center shadow-sm w-10/12 mx-auto">
+        <Ar className="text-xl font-bold text-emerald-800 block">قَوَاعِدُ اللُّغَةِ الْعَرَبِيَّةِ</Ar>
+        <div className="text-[10px] text-emerald-700 mt-1 border-t border-emerald-200 pt-1 uppercase tracking-wide font-bold">Арабская грамматика</div>
       </div>
-      <div className="w-full flex justify-center">
-        <svg width="200" height="20" viewBox="0 0 200 20" className="overflow-visible" aria-hidden="true">
-          <path d="M 2,0 Q 2,10 17,10 L 83,10 Q 100,10 100,20 Q 100,10 117,10 L 183,10 Q 198,10 198,0" fill="none" stroke="#34d399" strokeWidth="1.5"/>
-        </svg>
-      </div>
+      <V2down c="emerald" />
       <div className="ag2">
         {[{ar:'النَّحْوُ',def:'Окончания слов',c:'emerald'},{ar:'الصَّرْفُ',def:'Основа слов',c:'teal'}].map((s,i)=>(
           <div key={i} className={`bg-${s.c}-50 border border-${s.c}-300 rounded-lg p-2 text-center shadow-sm`}>
@@ -470,8 +455,8 @@ const Info1=memo(()=>(
       <div className="w-56 mx-auto bg-emerald-600 text-white rounded-lg p-3 text-center shadow-md ring-4 ring-emerald-100 z-10">
         <LBadge n={1} />
         <Ar className="text-2xl font-bold text-white block mb-1">الْكَلِمَةُ</Ar>
-        <div className="text-xs font-semibold">Слово</div>
-        <div className="text-[10px] text-emerald-200 mt-1 border-t border-emerald-500 pt-1">Высказывание, указывающее на единичное значение</div>
+        <div className="text-xs font-semibold">Слово (высказывание / звук)</div>
+        <div className="text-[10px] text-emerald-200 mt-1 border-t border-emerald-500 pt-1">Указывает на единичное значение</div>
       </div>
       <V3down c="emerald" />
       <div className="ag3 w-full">
@@ -496,6 +481,9 @@ const Info1=memo(()=>(
                 <span className={`text-[9px] font-bold text-${e.c}-600`}>{e.t}</span>
               </div>
             ))}
+          </div>
+          <div className="mt-1 bg-amber-100 rounded p-1.5 text-[10px] text-amber-900">
+            ✗ нет <Ar className="font-bold">ـِ</Ar> на конце
           </div>
         </div>
         <div className="bg-slate-50 border-t-2 border-slate-500 rounded-xl p-2 shadow-sm flex flex-col">
@@ -524,16 +512,21 @@ const Info2=memo(()=>(
         <div className="bg-green-50 p-3 rounded-xl border border-green-300 shadow-sm">
           <h3 className="text-base font-bold text-green-900 font-ar mb-1"><Ar>الْمُعْرَبُ</Ar> <span className="text-[10px] font-sans text-green-700">(Изменяемое)</span></h3>
           <IBox color="green">Окончание <strong>меняется</strong> под воздействием факторов.</IBox>
-          <div className="text-[10px] font-bold text-green-700 mt-2 mb-1">4 состояния:</div>
+          <div className="mt-2 text-[10px] text-green-700 font-bold mb-1">Примеры изменения:</div>
           <div className="space-y-1">
-            {[{name:'الرَّفْعُ',ru:'Им.п.',sign:'ـُ/ـٌ'},{name:'النَّصْبُ',ru:'Вин.п.',sign:'ـَ/ـً'},{name:'الْجَرُّ',ru:'Род.п.',sign:'ـِ/ـٍ'},{name:'الْجَزْمُ',ru:'Усечение',sign:'ـْ'}].map((r,i)=>(
-              <div key={i} className="bg-white p-1.5 rounded flex justify-between items-center border border-green-100">
-                <span className="text-[10px] text-gray-600"><Ar className="font-bold">{r.name}</Ar> — {r.ru}</span>
-                <Ar className="text-sm font-bold text-red-600">{r.sign}</Ar>
-              </div>
-            ))}
+            <div className="bg-white p-1.5 rounded flex justify-between items-center border border-green-100 text-[10px]">
+              <span className="text-gray-600">هَذَا <Ar className="font-bold text-green-700">بَيْتٌ</Ar></span>
+              <Ar className="font-bold text-red-600">ـٌ</Ar>
+            </div>
+            <div className="bg-white p-1.5 rounded flex justify-between items-center border border-green-100 text-[10px]">
+              <span className="text-gray-600">رَأَيْتُ <Ar className="font-bold text-green-700">بَيْتًا</Ar></span>
+              <Ar className="font-bold text-red-600">ـً</Ar>
+            </div>
+            <div className="bg-white p-1.5 rounded flex justify-between items-center border border-green-100 text-[10px]">
+              <span className="text-gray-600">مَرَرْتُ بـ<Ar className="font-bold text-green-700">بَيْتٍ</Ar></span>
+              <Ar className="font-bold text-red-600">ـٍ</Ar>
+            </div>
           </div>
-          <div className="mt-2 text-[10px] text-green-700 font-bold">Пример: <Ar>بَيْتٌ / بَيْتًا / بَيْتٍ</Ar></div>
         </div>
         <div className="bg-red-50 p-3 rounded-xl border border-red-300 shadow-sm">
           <h3 className="text-base font-bold text-red-900 font-ar mb-1"><Ar>الْمَبْنِيُّ</Ar> <span className="text-[10px] font-sans text-red-700">(Неизменяемое)</span></h3>
@@ -545,10 +538,10 @@ const Info2=memo(()=>(
             <div className="bg-white p-1.5 rounded border border-red-100 text-[10px]">
               <span className="font-bold text-red-600">٣. الاسم — 6 видов:</span>
               <div className="grid grid-cols-2 gap-1 mt-1">
-                {[['الضَّمَائِر','Местоим.'],['أسم.الإشارة','Указат.'],['أسم.الموصول','Относит.'],['أسم.الشرط','Условия'],['بعض الظروف','Обстоят.'],['أسم.الاستفهام','Вопросит.']].map((r,i)=>(
+                {[['الضَّمَائِر','أَنْتَ'],['أسم.الإشارة','هَذَا'],['أسم.الموصول','الَّذِي'],['أسم.الشرط','مَنْ'],['بعض الظروف','أَمْسِ'],['أسم.الاستفهام','مَتَى']].map((r,i)=>(
                   <div key={i} className="bg-red-50 rounded p-1 text-[9px]">
                     <Ar className="font-bold text-red-700 block">{r[0]}</Ar>
-                    <span className="text-gray-600">{r[1]}</span>
+                    <Ar className="text-gray-600">{r[1]}</Ar>
                   </div>
                 ))}
               </div>
@@ -569,28 +562,30 @@ const Info3=memo(()=>(
       <BHead ar="الْإِعْرَابُ — التَّطْبِيقُ" ru="ГРАММАТИЧЕСКИЙ РАЗБОР" bg="violet" lesson={3} />
       <CLink c="violet" h={4} />
       <div className="bg-violet-50 border border-violet-200 rounded-xl p-3">
-        <div className="text-[11px] font-bold text-violet-800 mb-2">Алгоритм разбора слова:</div>
-        <div className="ag3 text-[10px]">
-          {[
-            {n:'١',title:'Вид',items:['Танвин/ال → اسم','Время → فعل','Предлог/союз → حرف']},
-            {n:'٢',title:'Тип',items:['اسم: معرب (кроме 6)','مضارع: معرب (кроме 2)','ماضي/أمر/حرف: مبني']},
-            {n:'٣',title:'Состояние',items:['ـُ/ـٌ → رفع','ـَ/ـً → نصب','ـِ/ـٍ → جر','ـْ → جزم']},
-          ].map((box,i)=>(
-            <div key={i} className="bg-white rounded-lg p-2 border border-violet-100">
-              <div className="font-bold text-violet-700 mb-1"><Ar>{box.n}</Ar> {box.title}</div>
-              {box.items.map((item,j)=><div key={j} className="text-gray-600 py-0.5 border-t border-violet-50">{item}</div>)}
+        <div className="text-[11px] font-bold text-violet-800 mb-2">4 состояния (حَالَة) для الْمُعْرَب:</div>
+        <div className="grid grid-cols-2 gap-2 text-[10px]">
+          {[{name:'الرَّفْعُ',t:'اسم/مضارع',sign:'ـُ / ـٌ'},{name:'النَّصْبُ',t:'اسم/مضارع',sign:'ـَ / ـً'},{name:'الْجَرُّ',t:'Только اسم',sign:'ـِ / ـٍ'},{name:'الْجَزْمُ',t:'Только مضارع',sign:'ـْ'}].map((r,i)=>(
+            <div key={i} className="bg-white p-2 rounded border border-violet-100 text-center">
+              <Ar className="font-bold text-violet-700 text-sm block">{r.name}</Ar>
+              <div className="text-gray-500 mb-1">{r.t}</div>
+              <Ar className="font-bold text-red-600 text-base block">{r.sign}</Ar>
             </div>
           ))}
         </div>
       </div>
-      <div className="text-[10px] font-bold text-violet-700 text-center">5 разобранных примеров:</div>
+      <div className="text-[10px] font-bold text-violet-700 text-center mt-3">2 общих метода определения:</div>
+      <ul className="list-disc pl-5 text-[10px] text-gray-700 mb-3 space-y-1">
+        <li><strong>1 Метод:</strong> есть ли внешние признаки (مثال: ال или танвин).</li>
+        <li><strong>2 Метод:</strong> связано ли оно со временем, имеет ли смысл само по себе и т.д.</li>
+      </ul>
+      <div className="text-[10px] font-bold text-violet-700 text-center">Примеры разбора:</div>
       <div className="space-y-1.5">
         {[
-          {w:'بَيْتٌ',v:'Танвин ـٌ → اسم',t:'Не из 6 → معرب',s:'الرفع: ـٌ'},
-          {w:'يَذْهَبُ',v:'Время → فعل مضارع',t:'Не искл. → معرب',s:'الرفع: ـُ'},
-          {w:'مُحَمَّدًا',v:'Танвин ـً → اسم',t:'معرب',s:'النصب: ـً'},
-          {w:'كِتَابٍ',v:'Танвин ـٍ → اسم',t:'معرب',s:'الجر: ـٍ'},
-          {w:'لَمْ يَذْهَبْ',v:'فعل مضارع + لَمْ',t:'معرب',s:'الجزم: ـْ'},
+          {w:'بَيْتٌ',v:'اسم (танвин ـٌ)',t:'Не из 6 → معرب',s:'الرفع: ـٌ'},
+          {w:'يَذْهَبُ',v:'فعل مضارع',t:'Не искл. → معرب',s:'الرفع: ـُ'},
+          {w:'مُحَمَّدًا',v:'اسم (танвин ـً)',t:'معرب',s:'النصب: ـً'},
+          {w:'كِتَابٍ',v:'اسم (танвин ـٍ)',t:'معرب',s:'الجر: ـٍ'},
+          {w:'لَمْ يَذْهَبْ',v:'فعل مضارع',t:'معرب',s:'الجزم: ـْ (из-за لَمْ)'},
         ].map((e,i)=>(
           <div key={i} className="bg-white border border-violet-200 rounded-xl p-2">
             <Ar className="text-base font-bold text-violet-900 block mb-1">{e.w}</Ar>
@@ -614,12 +609,21 @@ const Info4=memo(()=>(
       <V2down c="pink" />
       <div className="ag2 w-full">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 shadow-sm">
-          <h3 className="font-bold text-blue-900 font-ar text-base text-center mb-2"><Ar>الْمُذَكَّرُ</Ar> <span className="text-[10px] font-sans text-blue-700">(Мужской)</span></h3>
+          <h3 className="font-bold text-blue-900 font-ar text-base text-center mb-2"><Ar>الْمُذَكَّرُ</Ar> <span className="text-[10px] font-sans text-blue-700">(Мужской — м.р.)</span></h3>
           <IBox color="blue">Основа всех слов. Не требует доказательств.</IBox>
-          <div className="text-[10px] font-bold text-blue-700 mt-2 mb-1">Непарные части тела:</div>
-          <div className="grid grid-cols-3 gap-1">
-            {[['أَنْفٌ','нос'],['رَأْسٌ','голова'],['ظَهْرٌ','спина']].map(([a,r],i)=>(
-              <div key={i} className="bg-white rounded p-1 text-center border border-blue-100">
+          <div className="mt-2 text-[10px] font-bold text-blue-700 mb-1">Непарные части тела:</div>
+          <div className="grid grid-cols-2 gap-1 mb-2">
+            {[['أَنْفٌ','нос'],['رَأْسٌ','голова']].map(([a,r],i)=>(
+              <div key={i} className="bg-white rounded p-1 text-center border border-blue-200">
+                <Ar className="text-xs font-bold text-blue-800 block">{a}</Ar>
+                <span className="text-[8px] text-gray-500">{r}</span>
+              </div>
+            ))}
+          </div>
+          <div className="text-[10px] font-bold text-blue-700 mb-1">Исключения с ة (м.р.):</div>
+          <div className="grid grid-cols-2 gap-1">
+            {[['أُسَامَةُ','Усама'],['حَمْزَةُ','Хамза']].map(([a,r],i)=>(
+              <div key={i} className="bg-white rounded p-1 text-center border border-blue-200">
                 <Ar className="text-xs font-bold text-blue-800 block">{a}</Ar>
                 <span className="text-[8px] text-gray-500">{r}</span>
               </div>
@@ -627,25 +631,23 @@ const Info4=memo(()=>(
           </div>
         </div>
         <div className="bg-pink-50 border border-pink-200 rounded-xl p-3 shadow-sm">
-          <h3 className="font-bold text-pink-900 font-ar text-base text-center mb-2"><Ar>الْمُؤَنَّثُ</Ar> <span className="text-[10px] font-sans text-pink-700">(Женский)</span></h3>
+          <h3 className="font-bold text-pink-900 font-ar text-base text-center mb-2"><Ar>الْمُؤَنَّثُ</Ar> <span className="text-[10px] font-sans text-pink-700">(Женский — ж.р.)</span></h3>
           <div className="text-[10px] font-bold text-pink-700 mb-1">3 внешних признака:</div>
-          {[{sign:'ة',pct:'99%',ex:'سَيَّارَةٌ — عَائِشَةُ'},{sign:'ى',pct:'99%',ex:'هُدَى — سَلْمَى'},{sign:'اء',pct:'100%',ex:'بَيْضَاءُ — صَحْرَاءُ'}].map((sg,i)=>(
-            <div key={i} className="bg-white rounded p-1.5 mb-1 border border-pink-100 flex items-center gap-2">
+          {[{sign:'ة',pct:'99%',ex:'سَيَّارَةٌ'},{sign:'ى',pct:'99%',ex:'هُدَى — سَلْمَى'},{sign:'اء',pct:'100%',ex:'صَحْرَاءُ — حَمْرَاءُ'}].map((sg,i)=>(
+            <div key={i} className="bg-white rounded p-1.5 mb-1 border border-pink-200 flex items-center gap-2">
               <Ar className="text-base font-bold text-pink-600">ـ{sg.sign}</Ar>
               <div className="flex-1">
-                <span className="text-[9px] font-bold text-green-600 bg-green-50 px-1 rounded">{sg.pct} ж.р.</span>
+                <span className="text-[9px] font-bold text-green-600 bg-green-50 px-1 rounded">{sg.pct}</span>
                 <Ar className="text-[10px] text-gray-600 block">{sg.ex}</Ar>
               </div>
             </div>
           ))}
-          <div className="text-[10px] font-bold text-pink-700 mt-2 mb-1">Парные части тела:</div>
-          <div className="grid grid-cols-3 gap-1">
-            {[['يَدٌ','рука'],['عَيْنٌ','глаз'],['أُذُنٌ','ухо']].map(([a,r],i)=>(
-              <div key={i} className="bg-white rounded p-1 text-center border border-pink-100">
-                <Ar className="text-xs font-bold text-pink-700 block">{a}</Ar>
-                <span className="text-[8px] text-gray-500">{r}</span>
-              </div>
-            ))}
+          <div className="text-[10px] font-bold text-pink-700 mt-2 mb-1">По употреблению:</div>
+          <div className="grid grid-cols-2 gap-1">
+            <div className="bg-white rounded p-1 text-center border border-pink-200"><span className="text-[9px] text-gray-500 block">Страны</span><Ar className="text-xs font-bold text-pink-700 block">رُوسِيَا</Ar></div>
+            <div className="bg-white rounded p-1 text-center border border-pink-200"><span className="text-[9px] text-gray-500 block">Племена</span><Ar className="text-xs font-bold text-pink-700 block">قُرَيْش</Ar></div>
+            <div className="bg-white rounded p-1 text-center border border-pink-200"><span className="text-[9px] text-gray-500 block">Города</span><Ar className="text-xs font-bold text-pink-700 block">مُوسْكُو</Ar></div>
+            <div className="bg-white rounded p-1 text-center border border-pink-200"><span className="text-[9px] text-gray-500 block">Парн. тело</span><Ar className="text-xs font-bold text-pink-700 block">عَيْنٌ</Ar></div>
           </div>
         </div>
       </div>
@@ -657,23 +659,37 @@ const Info4=memo(()=>(
 
 const Info5=memo(()=>(
   <div className="p-3 flex flex-col items-center">
-    <PH n="5" ar="الْمُثَنَّى" sub="Двойственное число" />
+    <PH n="5" ar="عَدَدُ الِاسْمِ" sub="Количественные числа существительного" />
     <div className="w-full p-3 space-y-2">
-      <BHead ar="الْمُثَنَّى" ru="ДВОЙСТВЕННОЕ ЧИСЛО" bg="indigo" lesson={5} />
+      <BHead ar="عَدَدُ الِاسْمِ" ru="КОЛИЧЕСТВЕННЫЕ ЧИСЛА СУЩЕСТВИТЕЛЬНОГО" bg="indigo" lesson={5} />
       <CLink c="indigo" h={4} />
-      <RBox>Правило: ставим фатху <Ar>ـَ</Ar> + <Ar>ـانِ</Ar> (رفع) или <Ar>ـيْنِ</Ar> (نصب/جر)</RBox>
-      <IBox>Для <Ar>ة</Ar>: раскрывается в <Ar>ت</Ar> — <Ar className="font-bold">سَيَّارَةٌ → سَيَّارَتَانِ</Ar></IBox>
+      <RBox>Двойственное: ставим фатху <Ar>ـَ</Ar> + <Ar>ـَانِ</Ar> (رفع) или <Ar>ـَيْنِ</Ar> (نصب/جر)</RBox>
+      <IBox>Для <Ar>ة</Ar>: раскрывается в <Ar>ت</Ar> — <Ar className="font-bold">سَيَّارَةٌ ← سَيَّارَتَانِ</Ar></IBox>
       <div className="space-y-2">
-        {[{c_:'الرَّفْع',sign:'ـَانِ',note:'алиф = признак',ex:'الْمُعَلِّمَانِ مَاهِرَانِ'},{c_:'النَّصْب',sign:'ـَيْنِ',note:'ياء = признак',ex:'رَأَيْتُ رَجُلَيْنِ'},{c_:'الْجَرّ',sign:'ـَيْنِ',note:'ياء = признак',ex:'فَرِحْتُ بِهَدِيَّتَيْنِ'}].map((r,i)=>(
-          <div key={i} className="bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
-            <div className="flex justify-between items-center mb-1">
-              <Ar className="text-[11px] font-bold text-indigo-700">{r.c_}</Ar>
-              <Ar className="text-lg font-bold text-red-600">{r.sign}</Ar>
-            </div>
-            <Ar className="text-sm font-bold text-gray-800 block">{r.ex}</Ar>
-            <div className="text-[10px] text-gray-500">{r.note}</div>
+        <div className="bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
+          <div className="flex justify-between items-center mb-1">
+            <Ar className="text-[11px] font-bold text-indigo-700">الرَّفْع</Ar>
+            <Ar className="text-lg font-bold text-red-600">ـَانِ</Ar>
           </div>
-        ))}
+          <Ar className="text-sm font-bold text-gray-800 block">الْمُعَلِّمَانِ<span className="text-red-500 text-xs">¹</span> مَاهِرَانِ<span className="text-red-500 text-xs">²</span></Ar>
+          <div className="text-[10px] text-gray-500">алиф = признак (Подлежащее и сказуемое)</div>
+        </div>
+        <div className="bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
+          <div className="flex justify-between items-center mb-1">
+            <Ar className="text-[11px] font-bold text-indigo-700">النَّصْب</Ar>
+            <Ar className="text-lg font-bold text-red-600">ـَيْنِ</Ar>
+          </div>
+          <Ar className="text-sm font-bold text-gray-800 block">رَأَيْتُ رَجُلَيْنِ</Ar>
+          <div className="text-[10px] text-gray-500">ياء = признак (Объект действия)</div>
+        </div>
+        <div className="bg-indigo-50 p-2.5 rounded-xl border border-indigo-200">
+          <div className="flex justify-between items-center mb-1">
+            <Ar className="text-[11px] font-bold text-indigo-700">الْجَرّ</Ar>
+            <Ar className="text-lg font-bold text-red-600">ـَيْنِ</Ar>
+          </div>
+          <Ar className="text-sm font-bold text-gray-800 block">فَرِحْتُ بِهَدِيَّتَيْنِ</Ar>
+          <div className="text-[10px] text-gray-500">ياء = признак (После предлога)</div>
+        </div>
       </div>
     </div>
   </div>
@@ -686,7 +702,7 @@ const Info6=memo(()=>(
       <BHead ar="جَمْعُ الْمُذَكَّرِ السَّالِمِ" ru="ПРАВИЛЬНОЕ МУЖ. МН.ЧИСЛО" bg="blue" lesson={6} />
       <CLink c="blue" h={4} />
       <div className="bg-blue-50 p-3 rounded-xl border border-blue-200">
-        <IBox color="blue">Условия: <strong>мужской род</strong> + <strong>разумное</strong> (عَاقِل: Аллах, ангелы, джинны, люди)</IBox>
+        <IBox color="blue">Условия: <strong>мужской род (مُذَكَّر)</strong> + <strong>разумное (عَاقِل)</strong></IBox>
         <V2down c="blue" />
         <div className="grid grid-cols-2 gap-2 mb-2">
           <div className="bg-green-50 rounded-xl p-2 text-center border border-green-200">
@@ -699,11 +715,13 @@ const Info6=memo(()=>(
           </div>
         </div>
         <div className="space-y-1 text-[11px]">
-          {[{s:'مُسْلِمٌ',r:'مُسْلِمُونَ',n:'مُسْلِمِينَ'},{s:'مُؤْمِنٌ',r:'مُؤْمِنُونَ',n:'مُؤْمِنِينَ'},{s:'مُدَرِّسٌ',r:'مُدَرِّسُونَ',n:'مُدَرِّسِينَ'}].map((e,i)=>(
-            <div key={i} className="bg-white rounded p-1.5 border border-blue-100 flex items-center gap-1.5 flex-wrap">
-              <Ar className="font-bold text-gray-800">{e.s}</Ar><span className="text-gray-400">→</span>
-              <Ar className="font-bold text-blue-700">{e.r}</Ar><span className="text-gray-400">/</span>
-              <Ar className="font-bold text-blue-700">{e.n}</Ar>
+          {[{s:'مُؤْمِنٌ',r:'مُؤْمِنُونَ',n:'مُؤْمِنِينَ'},{s:'مُسَافِرٌ',r:'مُسَافِرُونَ',n:'مُسَافِرِينَ'}].map((e,i)=>(
+            <div key={i} dir="rtl" className="bg-white rounded p-1.5 border border-blue-100 flex items-center gap-1.5 flex-wrap">
+              <span className="font-ar font-bold text-gray-800 text-sm">{e.s}</span>
+              <span className="text-gray-400">←</span>
+              <span className="font-ar font-bold text-blue-700 text-sm">{e.r}</span>
+              <span className="text-gray-400">/</span>
+              <span className="font-ar font-bold text-blue-700 text-sm">{e.n}</span>
             </div>
           ))}
         </div>
@@ -723,24 +741,27 @@ const Info7=memo(()=>(
           <div className="text-[10px] font-bold text-pink-700 mb-2">٢. جَمْعُ الْمُؤَنَّثِ السَّالِمِ</div>
           <RBox>Убрать <Ar>ة</Ar> → добавить <Ar>ـَاتٌ</Ar></RBox>
           <div className="mt-2 space-y-1">
-            {[{s:'سَيَّارَةٌ',pl:'سَيَّارَاتٌ',ru:'машины'},{s:'طَالِبَةٌ',pl:'طَالِبَاتٌ',ru:'студентки'},{s:'زَيْنَبُ',pl:'زَيْنَبَاتٌ',ru:'(без ة)'}].map((e,i)=>(
-              <div key={i} className="bg-white rounded p-1 border border-pink-100 text-[10px] flex items-center gap-1 flex-wrap">
-                <Ar className="font-bold">{e.s}</Ar><span className="text-gray-400">→</span>
-                <Ar className="font-bold text-pink-700">{e.pl}</Ar>
-                <span className="text-[9px] text-gray-500 ml-auto">{e.ru}</span>
+            {[{s:'سَيَّارَةٌ',pl:'سَيَّارَاتٌ',ru:'машины'},{s:'سَجَّادَةٌ',pl:'سَجَّادَاتٌ',ru:'ковры'},{s:'زَيْنَبُ',pl:'زَيْنَبَاتٌ',ru:'Зайнабы (имена)'}].map((e,i)=>(
+              <div key={i} dir="rtl" className="bg-white rounded p-1 border border-pink-200 text-[10px] flex items-center gap-1 flex-wrap">
+                <span className="font-ar font-bold text-sm">{e.s}</span>
+                <span className="text-gray-400">←</span>
+                <span className="font-ar font-bold text-pink-700 text-sm">{e.pl}</span>
+                <span dir="ltr" className="text-[9px] text-gray-500 mr-auto">{e.ru}</span>
               </div>
             ))}
           </div>
+          <div className="mt-2 text-[9px] text-pink-800 bg-pink-50 p-1 rounded italic text-center border border-pink-200">Словарь: ات = جَمْعُ الْمُؤَنَّثِ</div>
         </div>
         <div className="bg-orange-50 border-t-2 border-orange-400 rounded-xl p-3 shadow-sm">
           <div className="text-[10px] font-bold text-orange-700 mb-2">٣. جَمْعُ التَّكْسِيرِ</div>
           <RBox>Нет формулы — <strong>учить наизусть!</strong></RBox>
           <div className="mt-2 space-y-1">
             {[{s:'كِتَابٌ',pl:'كُتُبٌ',n:'ا исчезла'},{s:'طَالِبٌ',pl:'طُلَّابٌ',n:''},{s:'غُرْفَةٌ',pl:'غُرَفٌ',n:''},{s:'نَجْمٌ',pl:'نُجُومٌ',n:''}].map((e,i)=>(
-              <div key={i} className="bg-white rounded p-1 border border-orange-100 text-[10px] flex items-center gap-1 flex-wrap">
-                <Ar className="font-bold">{e.s}</Ar><span className="text-gray-400">→</span>
-                <Ar className="font-bold text-orange-700">{e.pl}</Ar>
-                {e.n&&<span className="text-[9px] text-red-400 ml-auto">({e.n})</span>}
+              <div key={i} dir="rtl" className="bg-white rounded p-1 border border-orange-100 text-[10px] flex items-center gap-1 flex-wrap">
+                <span className="font-ar font-bold text-sm">{e.s}</span>
+                <span className="text-gray-400">←</span>
+                <span className="font-ar font-bold text-orange-700 text-sm">{e.pl}</span>
+                {e.n&&<span dir="ltr" className="text-[9px] text-red-400 mr-auto">({e.n})</span>}
               </div>
             ))}
           </div>
@@ -759,8 +780,9 @@ const Info8=memo(()=>(
       <BHead ar="النَّكِرَةُ وَالْمَعْرِفَةُ" ru="ОПРЕДЕЛЁННОСТЬ / НЕОПРЕДЕЛЁННОСТЬ" bg="amber" lesson={8} />
       <CLink c="amber" h={4} />
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-2 mb-0 text-[10px] text-amber-800 text-center">
-        <Ar className="text-xl font-bold text-gray-700">قَلَمٌ</Ar> — любая ручка &nbsp;|&nbsp;
-        <Ar className="text-xl font-bold text-amber-800">الْقَلَمُ</Ar> — конкретная ручка
+        В магазине канцтоваров:<br/>
+        <Ar className="text-xl font-bold text-gray-700">أُرِيدُ قَلَمًا</Ar> — любую ручку &nbsp;|&nbsp;
+        <Ar className="text-xl font-bold text-amber-800">أُرِيدُ الْقَلَمَ</Ar> — конкретную
       </div>
       <V2down c="amber" />
       <div className="ag2 w-full">
@@ -769,7 +791,7 @@ const Info8=memo(()=>(
           <IBox color="gray">Указывает на что-то <strong>общее, неизвестное</strong>.</IBox>
           <div className="mt-2 space-y-1">
             {[{ar:'قَلَمٌ',ru:'Какая-то ручка'},{ar:'كِتَابٌ',ru:'Какая-то книга'}].map((e,i)=>(
-              <div key={i} className="bg-white rounded p-1.5 text-center border border-gray-100">
+              <div key={i} className="bg-white rounded p-1.5 text-center border border-gray-200">
                 <Ar className="text-base font-bold text-gray-700 block">{e.ar}</Ar>
                 <span className="text-[10px] text-gray-500">{e.ru}</span>
               </div>
@@ -780,8 +802,8 @@ const Info8=memo(()=>(
           <h3 className="font-bold font-ar text-amber-900 text-base text-center mb-2"><Ar>الْمَعْرِفَةُ</Ar> <span className="text-[10px] font-sans">(Опред.)</span></h3>
           <IBox color="amber">6 видов определённых имён:</IBox>
           <div className="mt-2 space-y-1">
-            {[{n:'١',label:'Местоимения',ar:'أَنَا — هُوَ'},{n:'٢',label:'Указательные',ar:'هَذَا — هَذِهِ'},{n:'٣',label:'Относительные',ar:'الَّذِي — الَّتِي'},{n:'٤',label:'Имена собств.',ar:'مُحَمَّدٌ — مَكَّةُ'},{n:'٥',label:'С артиклем ال',ar:'كِتَابٌ → الْكِتَابُ'},{n:'٦',label:'Идафа',ar:'كِتَابُ مُحَمَّدٍ'}].map((r,i)=>(
-              <div key={i} className="bg-white p-1.5 rounded border border-amber-100">
+            {[{n:'١',label:'Местоимения',ar:'أَنَا — هُوَ'},{n:'٢',label:'Указательные',ar:'هَذَا — هَذِهِ'},{n:'٣',label:'Относительные',ar:'الَّذِي — الَّتِي'},{n:'٤',label:'Имена собств.',ar:'مَكَّةُ — أَبُو بَكْرٍ'},{n:'٥',label:'С артиклем ال',ar:'كِتَابٌ ← الْكِتَابُ'},{n:'٦',label:'الإِضَافَةُ',ar:'كِتَابُ مُحَمَّدٍ'}].map((r,i)=>(
+              <div key={i} className="bg-white p-1.5 rounded border border-amber-200">
                 <div className="flex items-baseline gap-1">
                   <span className="text-[10px] font-bold text-amber-700"><Ar>{r.n}</Ar> {r.label}</span>
                 </div>
@@ -803,15 +825,15 @@ const Info9=memo(()=>(
     <div className="w-full p-3 space-y-0">
       <BHead ar="الضَّمَائِرُ الْمُنْفَصِلَةُ" ru="РАЗДЕЛЬНЫЕ МЕСТОИМЕНИЯ" bg="purple" lesson={9} />
       <CLink c="purple" h={4} />
-      <div className="bg-purple-50 border border-purple-100 rounded-xl p-2 mb-0 text-[10px] text-purple-800 text-center">
+      <div className="bg-purple-50 border border-purple-200 rounded-xl p-2 mb-0 text-[10px] text-purple-800 text-center">
         Пишутся <strong>отдельно</strong>, можно начинать с них предложение
       </div>
       <V3down c="purple" />
       <div className="ag3 w-full">
         {[
           {title:'الْمُتَكَلِّمُ',sub:'1 лицо',c:'blue',rows:[{ar:'أَنَا',ru:'Я'},{ar:'نَحْنُ',ru:'Мы'}]},
-          {title:'الْمُخَاطَبُ',sub:'2 лицо',c:'amber',rows:[{ar:'أَنْتَ',ru:'Ты (м)'},{ar:'أَنْتِ',ru:'Ты (ж)'},{ar:'أَنْتُمَا',ru:'Вы двое'},{ar:'أَنْتُمْ',ru:'Вы (м)'},{ar:'أَنْتُنَّ',ru:'Вы (ж)'}]},
-          {title:'الْغَائِبُ',sub:'3 лицо',c:'rose',rows:[{ar:'هُوَ',ru:'Он'},{ar:'هِيَ',ru:'Она'},{ar:'هُمَا',ru:'Они 2'},{ar:'هُمْ',ru:'Они (м)'},{ar:'هُنَّ',ru:'Они (ж)'}]},
+          {title:'الْمُخَاطَبُ',sub:'2 лицо',c:'amber',rows:[{ar:'أَنْتَ',ru:'Ты (м.р.)'},{ar:'أَنْتِ',ru:'Ты (ж.р.)'},{ar:'أَنْتُمَا',ru:'Вы двое'},{ar:'أَنْتُمْ',ru:'Вы (м.р.)'},{ar:'أَنْتُنَّ',ru:'Вы (ж.р.)'}]},
+          {title:'الْغَائِبُ',sub:'3 лицо',c:'rose',rows:[{ar:'هُوَ',ru:'Он (м.р. ед.ч.)'},{ar:'هِيَ',ru:'Она (ж.р. ед.ч.)'},{ar:'هُمَا',ru:'Они 2'},{ar:'هُمْ',ru:'Они (м.р. мн.ч.)'},{ar:'هُنَّ',ru:'Они (ж.р. мн.ч.)'}]},
         ].map((col,i)=>(
           <div key={i} className={`bg-${col.c}-50 border border-${col.c}-200 rounded-xl p-2 shadow-sm`}>
             <div className={`text-[11px] font-bold text-${col.c}-800 mb-0.5 text-center`}><Ar>{col.title}</Ar></div>
@@ -839,7 +861,7 @@ const Info10=memo(()=>(
     <div className="w-full p-3 space-y-2">
       <BHead ar="الضَّمَائِرُ الْمُتَّصِلَةُ" ru="СЛИТНЫЕ МЕСТОИМЕНИЯ" bg="fuchsia" lesson={10} />
       <CLink c="fuchsia" h={4} />
-      <IBox color="fuchsia">Присоединяются к концу <Ar className="font-bold">اسم / فعل / حرف</Ar>. Пример: <Ar className="font-bold">كِتَابِي — فِيهِ — ضَرَبَنِي</Ar></IBox>
+      <IBox color="fuchsia">Присоединяются к концу <Ar className="font-bold">اسم / فعل / حرف</Ar>. <br/>Используются для сокращения речи.</IBox>
       <Tbl
         headers={['الضمير','Рус.','Суффикс','مع اسم','مع حرف']}
         rows={ATTACHED.map(r=>({
@@ -863,6 +885,7 @@ const Info11=memo(()=>(
     <PH n="11" ar="أَقْسَامُ الْجُمْلَةِ" sub="Виды предложений" />
     <div className="w-full p-3 space-y-0">
       <BHead ar="أَقْسَامُ الْجُمْلَةِ" ru="ВИДЫ ПРЕДЛОЖЕНИЙ" bg="teal" lesson={11} />
+      <div className="text-[10px] text-teal-800 text-center mt-2 font-bold">Язык → Текст → Предложение → Слово</div>
       <V2down c="teal" />
       <div className="ag2 w-full">
         <div className="bg-teal-50 p-3 rounded-xl border border-teal-200 shadow-sm flex flex-col">
@@ -872,11 +895,11 @@ const Info11=memo(()=>(
           <div className="flex gap-2 mt-2">
             <div className="bg-white p-2 rounded-lg flex-1 text-center border border-teal-100">
               <Ar className="font-bold text-teal-800 text-sm block">الْمُبْتَدَأُ</Ar>
-              <span className="text-[9px] text-gray-500">Подлежащее</span>
+              <span className="text-[9px] text-gray-500">Подлежащее<br/>(Обычно المَعْرِفَة)</span>
             </div>
             <div className="bg-white p-2 rounded-lg flex-1 text-center border border-teal-100">
               <Ar className="font-bold text-teal-800 text-sm block">الْخَبَرُ</Ar>
-              <span className="text-[9px] text-gray-500">Сказуемое</span>
+              <span className="text-[9px] text-gray-500">Сказуемое<br/>(Дает весть)</span>
             </div>
           </div>
           <div className="mt-2 bg-red-50 rounded p-1.5 text-[10px] text-red-700 font-bold text-center border border-red-100">
@@ -914,18 +937,20 @@ const Info12=memo(()=>(
       <BHead ar="فِعْلُ الْمَاضِي" ru="ПРОШЕДШЕЕ ВРЕМЯ" bg="orange" lesson={12} />
       <CLink c="orange" h={4} />
       <div className="bg-orange-50 border border-orange-200 rounded-xl p-2">
-        <div className="text-[10px] font-bold text-orange-700 mb-1.5 text-center">Словарная форма:</div>
+        <div className="text-[10px] font-bold text-orange-700 mb-2 text-center">Словарная форма:</div>
         <div className="grid grid-cols-4 gap-1 text-[9px] font-bold text-gray-600 mb-1 text-center">
           <div>Рус.</div><div className="text-orange-700">ماضي</div><div className="text-blue-700">مضارع</div><div className="text-red-700">أمر</div>
         </div>
-        {[['читать','قَرَأَ','يَقْرَأُ','اِقْرَأْ'],['идти','ذَهَبَ','يَذْهَبُ','اِذْهَبْ'],['жить','سَكَنَ','يَسْكُنُ','اُسْكُنْ'],['молиться','صَلَّى','يُصَلِّي','صَلِّ']].map((r,i)=>(
-          <div key={i} className="grid grid-cols-4 gap-1 bg-white rounded p-1 border border-orange-100 mb-0.5">
-            <span className="text-[9px] text-gray-500">{r[0]}</span>
-            <Ar className="text-xs font-bold text-orange-700 text-center block">{r[1]}</Ar>
-            <Ar className="text-xs font-bold text-blue-700 text-center block">{r[2]}</Ar>
-            <Ar className="text-xs font-bold text-red-700 text-center block">{r[3]}</Ar>
+        <div className="space-y-1.5">
+        {[['читать','قَرَأَ','يَقْرَأُ','اِقْرَأْ'],['идти','ذَهَبَ','يَذْهَبُ','اِذْهَبْ'],['жить','سَكَنَ','يَسْكُنُ','اُسْكُنْ'],['молиться','صَلَّى','يُصَلِّي','صَلِّ'],['умываться','تَوَضَّأَ','يَتَوَضَّأُ','تَوَضَّأْ']].map((r,i)=>(
+          <div key={i} className="grid grid-cols-4 gap-1 items-center bg-white rounded p-1.5 border border-orange-100">
+            <span className="text-[9px] text-gray-500 leading-tight text-center">{r[0]}</span>
+            <Ar className="text-sm font-bold text-orange-700 text-center block leading-none">{r[1]}</Ar>
+            <Ar className="text-sm font-bold text-blue-700 text-center block leading-none">{r[2]}</Ar>
+            <Ar className="text-sm font-bold text-red-700 text-center block leading-none">{r[3]}</Ar>
           </div>
         ))}
+        </div>
       </div>
       <Tbl
         headers={['ضمير','Рус.','Форма','+суфф.']}
@@ -940,10 +965,10 @@ const Info12=memo(()=>(
         }))}
         rCls={r=>pC(r.p)}
       />
-      <div className="flex gap-2 text-[9px]">
-        <span className="bg-blue-50 rounded px-2 py-0.5 text-blue-600 font-bold">■ 1 лицо</span>
-        <span className="bg-amber-50 rounded px-2 py-0.5 text-amber-600 font-bold">■ 2 лицо</span>
-        <span className="bg-rose-50 rounded px-2 py-0.5 text-rose-600 font-bold">■ 3 лицо</span>
+      <div className="flex gap-2 text-[9px] mt-2 justify-center">
+        <span className="bg-blue-50 rounded px-2 py-0.5 text-blue-600 font-bold border border-blue-200">■ 1 лицо</span>
+        <span className="bg-amber-50 rounded px-2 py-0.5 text-amber-600 font-bold border border-amber-200">■ 2 лицо</span>
+        <span className="bg-rose-50 rounded px-2 py-0.5 text-rose-600 font-bold border border-rose-200">■ 3 лицо</span>
       </div>
     </div>
   </div>
@@ -981,8 +1006,11 @@ const Info13=memo(()=>(
           ],
           muz:r.muz,muan:r.muan
         }))}
-        rCls={r=>r.muz?'bg-blue-50/50':r.muan?'bg-pink-50/50':'bg-amber-50/30'}
+        rCls={r=>r.muz?'bg-blue-50':r.muan?'bg-pink-50':'bg-amber-50'}
       />
+      <div className="text-[10px] text-gray-600 bg-gray-50 border border-gray-200 rounded p-1 text-center italic">
+        (ا) в конце قَرَأُوا / اِذْهَبُوا — нечитаемый алиф.
+      </div>
     </div>
   </div>
 ));
@@ -1002,7 +1030,7 @@ const P=({children,cl=''})=><p className={`mb-3 text-sm leading-relaxed text-sto
 const H3=({children})=><h3 className="text-sm font-bold text-stone-800 mb-2 mt-4 flex items-center gap-2 flex-wrap">{children}</h3>;
 const H4=({children})=><h4 className="text-xs font-semibold text-stone-700 mb-1.5 mt-3 flex items-center gap-2 flex-wrap">{children}</h4>;
 const Exa=({items})=>(
-  <div className="my-2 bg-stone-100 rounded-xl p-2.5 space-y-1 border border-stone-200">
+  <div className="my-2 bg-stone-100 rounded-xl p-2.5 space-y-2 border border-stone-200">
     {items.map(([ar,ru],i)=><div key={i} className="flex items-center gap-2 flex-wrap">
       <Ar className="text-[16px] font-bold text-stone-900">{ar}</Ar>
       {ru&&<span className="text-[12px] text-stone-500 leading-tight">— {ru}</span>}
@@ -1025,239 +1053,485 @@ const NumItem=({n,children})=><div className="flex gap-2 mb-2 items-start">
 /* ══════════ LESSON TEXTS ══════════ */
 const LText1=()=>(
   <div>
-    <LH n="1" ar="الْكَلِمَةُ — أَقْسَامُ الْكَلَامِ" sub="Виды слов" />
-    <P>Арабская грамматика состоит из двух основных разделов:</P>
+    <LH n="1" ar="الْكَلِمَةُ — أَقْسَامُ الْكَلَامِ" sub="Слово и его виды" />
+    <P>Арабская грамматика состоит из 2 основных разделов:</P>
     <div className="my-2 space-y-1.5">
-      <NumItem n="١"><T id="nahw" /> — изучает <strong>окончания</strong> слов.</NumItem>
-      <NumItem n="٢"><T id="sarf" /> — изучает <strong>основу (корень)</strong> слов.</NumItem>
+      <NumItem n="١"><T id="nahw" /> — изучает <strong>окончание</strong> слов.</NumItem>
+      <NumItem n="٢"><T id="sarf" /> — изучает <strong>основу</strong> слов.</NumItem>
     </div>
     <H3><T id="kalima" big /> — Слово</H3>
-    <DefBox ar="الْكَلِمَةُ هِيَ اللَّفْظُ الدَّالُّ عَلَى مَعْنًى مُفْرَدٍ" ru="Слово — высказывание, указывающее на единичное значение." />
-    <Exa items={[['مُحَمَّدٌ','Мухаммад'],['مَسْجِدٌ','мечеть'],['ذَهَبَ','ушёл'],['مِنْ','из']]} />
-    <P>Слово бывает только <strong>трёх видов</strong>:</P>
+    <DefBox ar="الْكَلِمَةُ هِيَ اللَّفْظُ الدَّالُّ عَلَى مَعْنًى مُفْرَدٍ" ru="Слово — это высказывание (звук), указывающее на единичное значение." />
+    <Exa items={[['مُحَمَّدٌ','Мухаммад'],['مَسْجِدٌ','мечеть'],['ذَهَبَ','ушел'],['مِنْ','из']]} />
+    <P>Слово бывает только <strong>трех видов</strong>:</P>
+    
     <H3>١. Имя <T id="ism" big /></H3>
-    <P>Имеет смысл, но <strong>не связано со временем</strong>.</P>
-    <Exa items={[['مُحَمَّدٌ','Мухаммад'],['بَيْتٌ','Дом'],['كِتَابٌ','Книга']]} />
-    <RuleBox>Признаки: принимает <Ar>ال</Ar> и танвин (<Ar>ـٌ ـً ـٍ</Ar>); в конце <strong>никогда</strong> нет <Ar className="text-red-600 font-bold">ـْ</Ar>.</RuleBox>
+    <P>Это слово, имеющее смысл, но <strong>не связанное со временем</strong>.</P>
+    <Exa items={[['مُحَمَّدٌ','Мухаммад'],['بَيْتٌ','Дом']]} />
+    
     <H3>٢. Глагол <T id="fiil" big /></H3>
-    <P>Имеет смысл и <strong>обязательно связан со временем</strong>. Три вида:</P>
+    <P>Это слово, имеющее смысл и <strong>связанное со временем</strong>. Подразделяется на три вида:</P>
     <div className="my-2 space-y-1.5">
-      <NumItem n="١"><T id="madi" /> — прошедшее: <Ar className="font-bold text-orange-700">ذَهَبَ</Ar></NumItem>
-      <NumItem n="٢"><T id="mudari" /> — настоящее/будущее: <Ar className="font-bold text-blue-700">يَذْهَبُ</Ar></NumItem>
-      <NumItem n="٣"><T id="amr" /> — повелительное: <Ar className="font-bold text-red-700">اِذْهَبْ</Ar></NumItem>
+      <NumItem n="١"><T id="madi" /> (прошедшее время)</NumItem>
+      <NumItem n="٢"><T id="mudari" /> (настоящее и будущее время)</NumItem>
+      <NumItem n="٣"><T id="amr" /> (приказ / повелительное наклонение)</NumItem>
     </div>
-    <RuleBox>В конце глагола <strong>никогда</strong> нет <Ar className="text-red-600 font-bold">ـِ</Ar>. <T id="madi" /> и <T id="amr" /> всегда <T id="mabni" />.</RuleBox>
+    <NoteBox>Примечание: из настоящего времени можно сделать будущее путем добавления специальных букв — это отдельная тема.</NoteBox>
+    <Exa items={[['ذَهَبَ','ушел'],['يَذْهَبُ','идет'],['اِذْهَبْ','иди']]} />
+
     <H3>٣. Частица <T id="harf" big /></H3>
-    <P>Не имеет полного смысла вне предложения, не связана со временем.</P>
+    <P>Это слово, которое <strong>не имеет полного смысла само по себе</strong> (без нахождения в предложении) и не связано со временем. Сюда относятся предлоги, союзы и т.д.</P>
     <Exa items={[['فِي','в'],['مِنْ','из'],['عَلَى','на']]} />
-    <DefBox ar="مُحَمَّدٌ فِي الْبَيْتِ" ru="Мухаммад в доме — роль частицы стала понятна." />
-    <NoteBox>Все частицы всегда <T id="mabni" />.</NoteBox>
+    <P>Пояснение: Сама по себе частица, например <Ar className="font-bold text-emerald-800">فِي</Ar> (в), не несет законченной информации, но ее смысл выявляется в предложении:</P>
+    <DefBox ar="مُحَمَّدٌ فِي الْبَيْتِ" ru="Мухаммад в доме. (Здесь роль и смысл частицы стали понятны)." />
+
+    <H3>Основные отличительные признаки</H3>
+    <P>Эти признаки помогают различить части речи:</P>
+    <div className="my-2 space-y-1.5">
+      <NumItem n="١"><strong>Признаки Имени (<Ar>اسم</Ar>):</strong> Только имена могут принимать артикль <Ar className="font-bold">ال</Ar> и танвин (<Ar>ـٌ ـً ـٍ</Ar>).</NumItem>
+      <NumItem n="٢"><strong>Различие в окончаниях:</strong><br/>
+      • В конце Имени (<Ar>اسم</Ar>) никогда не ставится сукун <Ar className="text-red-600 font-bold">ـْ</Ar>.<br/>
+      • В конце Глагола (<Ar>فعل</Ar>) никогда не ставится кясра <Ar className="text-red-600 font-bold">ـِ</Ar>.<br/>
+      <span className="text-gray-500 text-xs">(То есть кясра не свойственна глаголам, а сукун не свойственен именам).</span>
+      </NumItem>
+    </div>
   </div>
 );
+
 const LText2=()=>(
   <div>
     <LH n="2" ar="الْمُعْرَبُ وَالْمَبْنِيُّ" sub="Изменяемость и неизменяемость" />
-    <P>Слово бывает: <T id="murab" /> — изменяемое, или <T id="mabni" /> — неизменяемое.</P>
-    <H3>١. <T id="murab" big /></H3>
-    <DefBox ru="Окончание меняется под воздействием грамматических факторов." />
-    <Exa items={[['هَذَا بَيْتٌ','ـٌ — хабар'],['رَأَيْتُ بَيْتًا','ـً — дополнение'],['مَرَرْتُ بِبَيْتٍ','ـٍ — после предлога']]} />
-    <P>4 грамматических состояния (<T id="hal" />):</P>
+    <P>Виды слов по изменяемости и неизменяемости: слово (<T id="kalima" />) бывает двух видов: либо <T id="murab" /> (изменяемое слово), либо <T id="mabni" /> (неизменяемое слово).</P>
+    
+    <H3>١. <T id="murab" big /> (Изменяемость/Склонение)</H3>
+    <DefBox ru="Это изменение окончания слов по причине различных действующих факторов, которые влияют на эти слова." />
+    <P>Примеры:</P>
     <div className="my-2 space-y-1.5">
-      <NumItem n="١"><T id="rafaa" /> — знак <Ar className="font-bold text-red-600">ـُ / ـٌ</Ar>.</NumItem>
-      <NumItem n="٢"><T id="nasb" /> — знак <Ar className="font-bold text-red-600">ـَ / ـً</Ar>.</NumItem>
-      <NumItem n="٣"><T id="jarr" /> — знак <Ar className="font-bold text-red-600">ـِ / ـٍ</Ar>. Только у <T id="ism" />.</NumItem>
-      <NumItem n="٤"><T id="jazm" /> — знак <Ar className="font-bold text-red-600">ـْ</Ar>. Только у <T id="mudari" />.</NumItem>
+      <NumItem n="١"><Ar className="font-bold text-base text-emerald-800">هَذَا بَيْتٌ</Ar> (Это дом). Здесь стоит <Ar className="font-bold text-red-600">ـٌ</Ar>, потому что это <Ar>خَبَر</Ar> (сказуемое).</NumItem>
+      <NumItem n="٢"><Ar className="font-bold text-base text-emerald-800">رَأَيْتُ بَيْتًا</Ar> (Я увидел дом). Здесь стоит <Ar className="font-bold text-red-600">ـً</Ar>, потому что это <Ar>مَفْعُولٌ بِهِ</Ar> (объект действия).</NumItem>
+      <NumItem n="٣"><Ar className="font-bold text-base text-emerald-800">مَرَرْتُ بِبَيْتٍ</Ar> (Я прошел мимо дома). Здесь стоит <Ar className="font-bold text-red-600">ـٍ</Ar>, потому что это <Ar>اِسْمٌ مَجْرُورٌ</Ar> (имя в родительном падеже после предлога).</NumItem>
     </div>
-    <H3>٢. <T id="mabni" big /></H3>
-    <DefBox ru="Окончание не меняется, несмотря на факторы." />
-    <P>Пример: <Ar className="font-bold">هَؤُلَاءِ</Ar> всегда с كسرة — и как подлежащее, и после предлога.</P>
+
+    <H3>٢. <T id="mabni" big /> (Неизменяемость)</H3>
+    <DefBox ru="Это неизменяемость окончания слова, несмотря на факторы, действующие на него, и несмотря на его положение внутри предложения." />
+    <P>Примеры:</P>
     <div className="my-2 space-y-1.5">
-      <NumItem n="١"><T id="harf" /> — все частицы.</NumItem>
-      <NumItem n="٢"><T id="madi" /> и <T id="amr" /> — всегда мабни.</NumItem>
-      <NumItem n="٣"><T id="mudari" /> — мабни только в 2 случаях.</NumItem>
+      <NumItem n="١"><Ar className="font-bold text-base text-rose-800">جَاءَ هَؤُلَاءِ</Ar> (Пришли эти).</NumItem>
+      <NumItem n="٢"><Ar className="font-bold text-base text-rose-800">رَأَيْتُ هَؤُلَاءِ</Ar> (Я увидел этих).</NumItem>
+      <NumItem n="٣"><Ar className="font-bold text-base text-rose-800">مَرَرْتُ بِهَؤُلَاءِ</Ar> (Я прошел мимо этих).</NumItem>
     </div>
-    <H4>6 видов мабни-имён (<T id="ism" />):</H4>
+    <P className="text-xs text-gray-500 italic">(Окончание слова «هَؤُلَاءِ» не изменилось, всегда кясра).</P>
+
+    <H3>Какие слова являются неизменяемыми?</H3>
     <div className="my-2 space-y-1.5">
-      <NumItem n="١">Местоимения: <Ar>أَنْتَ، كِتَابُكَ</Ar></NumItem>
-      <NumItem n="٢">Указательные: <Ar>هَذَا، هَذِهِ</Ar></NumItem>
-      <NumItem n="٣">Относительные: <Ar>الَّذِي، الَّتِي</Ar></NumItem>
-      <NumItem n="٤">Условные: <Ar>مَنْ، أَيْنَ</Ar></NumItem>
-      <NumItem n="٥">Обстоятельства: <Ar>أَمْسِ، حَيْثُ</Ar></NumItem>
-      <NumItem n="٦">Вопросительные: <Ar>مَتَى، كَيْفَ</Ar></NumItem>
+      <NumItem n="١"><strong>الْحَرْف</strong> (Частица) — Все частицы являются مَبْنِي.</NumItem>
+      <NumItem n="٢"><strong>الْفِعْل</strong> (Глагол):<br/>
+      • الْمَاضِي (прошедшее) и الْأَمْر (приказ) — <strong>всегда</strong> مَبْنِي.<br/>
+      • الْمُضَارِع (настоящее/будущее) — является مَبْنِي только в 2 случаях, в остальных он مُعْرَب.
+      </NumItem>
+    </div>
+    <Exa items={[['جَاءَ / قَرَأَ / ذَهَبَ / أَكَلَ','Примеры الماضي'],['كُلْ / اِذْهَبْ / اُخْرُجْ','Примеры الأمر']]} />
+
+    <H4>3. الِاسْم (Имя)</H4>
+    <P>Основа в именах — это مُعْرَب, но есть группы имен, которые всегда مَبْنِي. Мы пройдем 6 основных видов:</P>
+    <div className="my-2 space-y-1.5">
+      <NumItem n="١"><strong>الضَّمَائِر</strong> (Местоимения): Все они (слитные и раздельные) неизменяемы. <Ar className="font-bold text-gray-600">أَنْتَ، كِتَابُكَ</Ar></NumItem>
+      <NumItem n="٢"><strong>أَسْمَاءُ الْإِشَارَة</strong> (Указательные): <Ar className="font-bold text-gray-600">هَذَا، هَذِهِ</Ar></NumItem>
+      <NumItem n="٣"><strong>الْأَسْمَاءُ الْمَوْصُولَة</strong> (Относительные): <Ar className="font-bold text-gray-600">الَّذِي، الَّتِي</Ar></NumItem>
+      <NumItem n="٤"><strong>أَسْمَاءُ الشَّرْط</strong> (Условные): <Ar className="font-bold text-gray-600">مَنْ، أَيْنَ</Ar></NumItem>
+      <NumItem n="٥"><strong>بَعْضُ الظُّرُوف</strong> (Некоторые обстоятельства/наречия): <Ar className="font-bold text-gray-600">أَمْسِ، حَيْثُ</Ar></NumItem>
+      <NumItem n="٦"><strong>أَسْمَاءُ الِاسْتِفْهَام</strong> (Вопросительные): <Ar className="font-bold text-gray-600">مَتَى، كَيْفَ</Ar></NumItem>
     </div>
   </div>
 );
+
 const LText3=()=>(
   <div>
-    <LH n="3" ar="الْإِعْرَابُ — التَّطْبِيقُ" sub="Грамматический разбор" />
-    <P>Алгоритм разбора слова:</P>
+    <LH n="3" ar="الْإِعْرَابُ — التَّطْبِيقُ" sub="Грамматический разбор слов" />
+    <P>Грамматический разбор зависит от того, к какому виду относится слово: <T id="mabni" /> (Неизменяемое) или <T id="murab" /> (Изменяемое).</P>
+    
+    <H3>1. Разбор неизменяемых слов (<Ar>الْمَبْنِي</Ar>)</H3>
+    <P>Для الْمَبْنِي все легко: мы смотрим на последнюю ташкиль слова. Если это <Ar className="font-bold">ـُ</Ar>, то говорим: <Ar className="font-bold text-emerald-800">مَبْنِيٌّ عَلَى الضَّمِّ</Ar> и так далее со всеми ташкилями (кроме шадды, так как оно не участвует в этом).</P>
+
+    <H3>2. Разбор изменяемых слов (<Ar>الْمُعْرَب</Ar>)</H3>
+    <P>Для الْمُعْرَب разбор чуть сложнее: сначала определяется грамматическое состояние слова (<T id="hal" />), а затем его огласовка/признак (<Ar className="font-bold">عَلَامَةٌ</Ar>).</P>
+
+    <H4>Что такое грамматическое состояние (حَالَةٌ)?</H4>
+    <P>Для изменяемых слов существует 4 состояния:</P>
     <div className="my-2 space-y-1.5">
-      <NumItem n="١"><strong>Вид:</strong> танвин/ال → <T id="ism" />; время → <T id="fiil" />; предлог → <T id="harf" />.</NumItem>
-      <NumItem n="٢"><strong>Тип:</strong> <T id="murab" /> или <T id="mabni" />?</NumItem>
-      <NumItem n="٣"><strong>Состояние:</strong> <T id="rafaa" /> <T id="nasb" /> <T id="jarr" /> <T id="jazm" /></NumItem>
+      <NumItem n="١"><T id="rafaa" /> (именительный падеж). Бывает только у <Ar>الِاسْم</Ar> и <Ar>الْفِعْل الْمُضَارِع</Ar>. Основной признак: <Ar className="font-bold text-red-600">ـُ</Ar> или <Ar className="font-bold text-red-600">ـٌ</Ar>.</NumItem>
+      <NumItem n="٢"><T id="nasb" /> (винительный падеж). Бывает только у <Ar>الِاسْم</Ar> и <Ar>الْفِعْل الْمُضَارِع</Ar>. Основной признак: <Ar className="font-bold text-red-600">ـَ</Ar> или <Ar className="font-bold text-red-600">ـً</Ar>.</NumItem>
+      <NumItem n="٣"><T id="jarr" /> (родительный падеж). Бывает <strong>только у</strong> <Ar>الِاسْم</Ar>. Основной признак: <Ar className="font-bold text-red-600">ـِ</Ar> или <Ar className="font-bold text-red-600">ـٍ</Ar>.</NumItem>
+      <NumItem n="٤"><T id="jazm" /> (усеченное наклонение). Бывает <strong>только у</strong> <Ar>الْفِعْل الْمُضَارِع</Ar>. Основной признак: <Ar className="font-bold text-red-600">ـْ</Ar>.</NumItem>
     </div>
-    <H3>Примеры:</H3>
-    {[{w:'بَيْتٌ',v:'اسم (танвин ـٌ)',t:'معرب',s:'رفع: ـٌ'},{w:'يَذْهَبُ',v:'مضارع (время)',t:'معرب',s:'رفع: ـُ'},{w:'مُحَمَّدًا',v:'اسم (танвин ـً)',t:'معرب',s:'نصب: ـً'},{w:'كِتَابٍ',v:'اسم (танвин ـٍ)',t:'معرب',s:'جر: ـٍ'},{w:'لَمْ يَذْهَبْ',v:'مضارع + لَمْ',t:'معرب',s:'جزم: ـْ'}].map((e,i)=>(
-      <div key={i} className="bg-violet-50 border border-violet-200 rounded-xl p-2.5 mb-2">
-        <Ar className="text-xl font-bold text-violet-900 block mb-1">{e.w}</Ar>
-        <div className="text-[12px] space-y-0.5 text-gray-600">
-          <div><span className="font-bold text-violet-700">Вид:</span> {e.v}</div>
-          <div><span className="font-bold text-violet-700">Тип:</span> {e.t}</div>
-          <div><span className="font-bold text-violet-700">Состояние:</span> {e.s}</div>
-        </div>
-      </div>
-    ))}
+
+    <P className="font-bold mt-4">Есть два общих метода определения:</P>
+    <ul className="list-disc pl-5 text-sm text-gray-700 mb-3 space-y-1">
+      <li><strong>1 Метод:</strong> есть ли внешние признаки (например, ال или танвин).</li>
+      <li><strong>2 Метод:</strong> связано ли оно со временем, имеет ли смысл само по себе и т.д.</li>
+    </ul>
+
+    <H3>Примеры грамматического разбора на практике</H3>
+    
+    <div className="my-3 bg-violet-50 border border-violet-200 rounded-xl p-3">
+      <Ar className="text-xl font-bold text-violet-900 block mb-1">١. بَيْتٌ</Ar>
+      <P className="text-xs mb-1"><strong>Разбор:</strong> Здесь есть танвин, значит это اِسْم. Оно не относится к 6 видам неизменяемых имен, значит оно مُعْرَب.</P>
+      <P className="text-xs font-bold text-violet-800">Состояние: Находится в الرَّفْع (оканчивается на ـٌ).</P>
+    </div>
+
+    <div className="my-3 bg-violet-50 border border-violet-200 rounded-xl p-3">
+      <Ar className="text-xl font-bold text-violet-900 block mb-1">٢. يَذْهَبُ</Ar>
+      <P className="text-xs mb-1"><strong>Вид:</strong> Связано со временем и имеет смысл — значит глагол (مضارع).</P>
+      <P className="text-xs mb-1"><strong>Тип:</strong> مضارع в основе مُعْرَب, кроме 2 случаев. Это не исключение.</P>
+      <P className="text-xs font-bold text-violet-800">Состояние: Находится в الرَّفْع (оканчивается на ـُ).</P>
+    </div>
+
+    <div className="my-3 bg-violet-50 border border-violet-200 rounded-xl p-3">
+      <Ar className="text-xl font-bold text-violet-900 block mb-1">٣. مُحَمَّدًا</Ar>
+      <P className="text-xs mb-1"><strong>Вид и Тип:</strong> Это اِسْم (есть ـً). Оно مُعْرَب.</P>
+      <P className="text-xs font-bold text-violet-800">Состояние: Находится в النَّصْب (оканчивается на ـً).</P>
+    </div>
+
+    <div className="my-3 bg-violet-50 border border-violet-200 rounded-xl p-3">
+      <Ar className="text-xl font-bold text-violet-900 block mb-1">٤. كِتَابٍ</Ar>
+      <P className="text-xs mb-1"><strong>Вид и Тип:</strong> Это اِسْم (есть ـٍ). Оно مُعْرَب.</P>
+      <P className="text-xs font-bold text-violet-800">Состояние: Находится в الْجَرّ (оканчивается на ـٍ).</P>
+    </div>
+
+    <div className="my-3 bg-violet-50 border border-violet-200 rounded-xl p-3">
+      <Ar className="text-xl font-bold text-violet-900 block mb-1">٥. لَمْ يَذْهَبْ</Ar>
+      <P className="text-xs italic text-gray-500 mb-1">(Примечание: в основе глагол был с даммой — يَذْهَبُ, но частица لَمْ сделала его с сукуном).</P>
+      <P className="text-xs mb-1"><strong>Вид и Тип:</strong> Это فِعْل, потому что у اِسْم никогда не будет ـْ. Оно مُعْرَب (не исключение).</P>
+      <P className="text-xs font-bold text-violet-800">Состояние: Находится в الْجَزْم (оканчивается на ـْ).</P>
+    </div>
   </div>
 );
+
 const LText4=()=>(
   <div>
     <LH n="4" ar="الْمُذَكَّرُ وَالْمُؤَنَّثُ" sub="Род в арабском языке" />
-    <RuleBox>Основа всех слов — мужской род. Для женского нужны признаки.</RuleBox>
-    <H3>Признаки <T id="muannas" big /></H3>
-    <H4>١. Окончание <Ar>ة</Ar> — 99%</H4>
-    <Exa items={[['عَائِشَةُ','Аиша'],['سَيَّارَةٌ','машина']]} />
-    <H4>٢. Окончание <Ar>ى</Ar> — 99%</H4>
-    <Exa items={[['هُدَى','Худа'],['بُشْرَى','радостная весть']]} />
-    <H4>٣. Окончание <Ar>اء</Ar> — 100%</H4>
-    <Exa items={[['صَحْرَاءُ','пустыня'],['بَيْضَاءُ','белая']]} />
-    <H3>Женский по смыслу</H3>
-    <Exa items={[['بِنْتٌ','дочь'],['أُمٌّ','мать'],['مَرْيَمُ','Марьям']]} />
-    <H3>Женский по употреблению</H3>
-    <P>Племена, народы, города, страны — женского рода.</P>
-    <H3>Части тела</H3>
-    <div className="grid grid-cols-2 gap-2 mt-2">
+    <RuleBox>В основе все слова в арабском языке относятся к мужскому роду (الْمُذَكَّر), и для этого не нужны доказательства. Но для того чтобы сказать, что слово женского рода (الْمُؤَنَّث), нужны доказательства (определенные признаки).</RuleBox>
+    
+    <H3>Признаки женского рода</H3>
+    
+    <H4>١. Окончание «ة» (التَّاءُ الْمَرْبُوطَة)</H4>
+    <Exa items={[['عَائِشَةُ','Аиша'],['جَمِيلَةٌ','красивая'],['سَيَّارَةٌ','машина']]} />
+    <P>Если слово оканчивается на ة, то в 99% случаев это مُؤَنَّث. Оставшийся 1% — это исключения (мужские имена):</P>
+    <Exa items={[['أُسَامَةُ','Усама'],['حَمْزَةُ','Хамза']]} />
+
+    <H4>٢. Окончание «ى» (الْأَلِفُ الْمَقْصُورَة)</H4>
+    <Exa items={[['هُدَى','Худа (если в значении женского имени то مُؤَنَّث, если в значении прямого пути то مُذَكَّر)'],['سَلْمَى','Сальма'],['بُشْرَى','радостная весть']]} />
+    <P>В 99% случаев это مُؤَنَّث. Есть 1% исключений, но их очень мало.</P>
+
+    <H4>٣. Окончание «اء» (الْأَلِفُ الْمَمْدُودَة)</H4>
+    <Exa items={[['بَيْضَاءُ','белая'],['صَحْرَاءُ','пустыня'],['حَمْرَاءُ','красная']]} />
+    <P>В 100% случаев это слово женского рода (مُؤَنَّث).</P>
+
+    <H3>Женский род по смыслу и употреблению</H3>
+    <P>Если слово указывает на лицо женского пола, оно является именем женского рода, даже если не имеет внешнего признака:</P>
+    <Exa items={[['بِنْتٌ','девочка / дочь'],['حَامِلٌ','беременная'],['أُمٌّ','мать'],['مَرْيَمُ','Марьям']]} />
+    
+    <P>Также есть слова, которые относятся к женскому роду лишь <strong>по употреблению</strong>. У них нет признаков и они не лица женского пола:</P>
+    <div className="grid grid-cols-2 gap-2 mt-2 mb-3">
       <div className="bg-pink-50 border border-pink-200 rounded-xl p-2">
-        <div className="text-[10px] font-bold text-pink-700 mb-1">🌸 Парные (ж.р.):</div>
-        <Exa items={[['يَدٌ','рука'],['عَيْنٌ','глаз'],['أُذُنٌ','ухо']]} />
+        <div className="text-[10px] font-bold text-pink-700 mb-1">Названия племен:</div>
+        <Exa items={[['قُرَيْش','Курайш'],['قَحْطَان','Кахтан']]} />
       </div>
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-2">
-        <div className="text-[10px] font-bold text-blue-700 mb-1">💙 Непарные (м.р.):</div>
-        <Exa items={[['أَنْفٌ','нос'],['رَأْسٌ','голова'],['ظَهْرٌ','спина']]} />
+      <div className="bg-pink-50 border border-pink-200 rounded-xl p-2">
+        <div className="text-[10px] font-bold text-pink-700 mb-1">Народы:</div>
+        <Exa items={[['الرُّوس','Русские'],['الْكَازَاخ','Казахи']]} />
+      </div>
+      <div className="bg-pink-50 border border-pink-200 rounded-xl p-2">
+        <div className="text-[10px] font-bold text-pink-700 mb-1">Города:</div>
+        <Exa items={[['مُوسْكُو','Москва'],['أَلْمَاتِي','Алматы']]} />
+      </div>
+      <div className="bg-pink-50 border border-pink-200 rounded-xl p-2">
+        <div className="text-[10px] font-bold text-pink-700 mb-1">Страны:</div>
+        <Exa items={[['رُوسِيَا','Россия'],['كَازَاخِسْتَان','Казахстан']]} />
       </div>
     </div>
+
+    <H3>Части тела</H3>
+    <P><strong>Парные</strong> части тела человека относятся к женскому роду:</P>
+    <Exa items={[['يَدٌ','рука'],['عَيْنٌ','глаз'],['أُذُنٌ','ухо']]} />
+    <P><strong>Непарные</strong> части тела относятся к мужскому роду:</P>
+    <Exa items={[['أَنْفٌ','нос'],['رَأْسٌ','голова']]} />
   </div>
 );
+
 const LText5=()=>(
   <div>
-    <LH n="5" ar="الْمُثَنَّى" sub="Двойственное число" />
-    <P>Имя по числу: <T id="mufrad" />, <T id="musanna" />, <T id="jamaa" />.</P>
-    <DefBox ar="مَا دَلَّ عَلَى اثْنَيْنِ بِزِيَادَةِ أَلِفٍ وَنُونٍ أَوْ يَاءٍ وَنُونٍ" ru="Указывает на двоих добавлением ـانِ или ـيْنِ." />
-    <RuleBox>Последнюю огласовку → <Ar>ـَ</Ar>, затем <Ar className="text-red-600 font-bold">ـانِ</Ar> или <Ar className="text-red-600 font-bold">ـيْنِ</Ar>.</RuleBox>
-    <Exa items={[['بَيْتٌ → بَيْتَانِ','два дома'],['سَيَّارَةٌ → سَيَّارَتَانِ','две машины']]} />
-    <H3>Падежи:</H3>
+    <LH n="5" ar="عَدَدُ الِاسْمِ" sub="Количественные числа существительного" />
+    <P>Имя (الِاسْم) в арабском языке по числу делится на три вида: <T id="mufrad" /> (единственное), <T id="musanna" /> (двойственное), <T id="jamaa" /> (множественное).</P>
+    
+    <H3>1. Единственное число (<T id="mufrad" big />)</H3>
+    <DefBox ar="الْمُفْرَدُ هُوَ مَا دَلَّ عَلَى وَاحِدٍ أَوْ وَاحِدَةٍ" ru="Единственное число — это то, что указывает на одного (طَالِبٌ) или одну (طَالِبَةٌ)." />
+
+    <H3>2. Двойственное число (<T id="musanna" big />)</H3>
+    <DefBox ar="الْمُثَنَّى هُوَ مَا دَلَّ عَلَى اثْنَيْنِ أَوِ اثْنَتَيْنِ بِزِيَادَةِ أَلِفٍ وَنُونٍ أَوْ يَاءٍ وَنُونٍ عَلَى مُفْرَدِهِ" ru="Указывает на два или две с добавлением (ـَانِ) или (ـَيْنِ) к единственному числу." />
+    
+    <RuleBox>Важное правило: перед добавлением окончаний двойственного числа последняя огласовка слова меняется на фатху (<Ar>ـَ</Ar>), а затем добавляется <Ar className="text-red-600 font-bold">ـَانِ</Ar> или <Ar className="text-red-600 font-bold">ـَيْنِ</Ar>.</RuleBox>
+    <Exa items={[['بَيْتٌ ← بَيْتَانِ','два дома'],['مُسْلِمٌ ← مُسْلِمَانِ','два мусульманина']]} />
+    
+    <P className="font-bold text-stone-800">Правило для (ة):</P>
+    <P>Если слово оканчивается на ة, то при образовании двойственного числа она раскрывается/заменяется на букву ت.</P>
+    <Exa items={[['سَيَّارَةٌ ← سَيَّارَتَانِ','две машины']]} />
+
+    <H3>Грамматические состояния двойственного числа</H3>
     <div className="my-2 space-y-1.5">
-      <NumItem n="١"><T id="rafaa" /> — окончание <Ar className="text-red-600 font-bold">ـانِ</Ar>. Пример: <Ar>الْمُعَلِّمَانِ مَاهِرَانِ</Ar></NumItem>
-      <NumItem n="٢+٣"><T id="nasb" /> и <T id="jarr" /> — <Ar className="text-red-600 font-bold">ـيْنِ</Ar>. Пример: <Ar>رَأَيْتُ رَجُلَيْنِ</Ar></NumItem>
+      <NumItem n="١"><strong>Состояние <T id="rafaa" /></strong><br/>
+      Основным признаком الرَّفْع является дамма или танвин дамма и то, что их заменяет. В нашем случае то, что их заменяет — это фатха.<br/>
+      <Ar className="font-bold text-emerald-800 block text-lg my-1">الْمُعَلِّمَانِ<span className="text-red-600 text-sm">¹</span> مَاهِرَانِ<span className="text-red-600 text-sm">²</span></Ar>
+      (Два учителя¹ искусны²/умелы²).<br/>
+      الْمُعَلِّمَانِ — это مُبْتَدَأٌ (подлежащее). مَاهِرَانِ — это خَبَرٌ (сказуемое). Оба всегда должны быть в состоянии الرَّفْع.<br/>
+      <span className="text-xs text-gray-500 italic">Признаком الرَّفْع здесь является алиф (ا), потому что в двойственном числе слово в состоянии الرَّفْع бывает только с ا.</span>
+      </NumItem>
+      
+      <NumItem n="٢"><strong>Состояния <T id="nasb" /> и <T id="jarr" /></strong><br/>
+      В двойственном числе основные признаки заменяются, и к слову добавляется окончание <Ar className="text-red-600 font-bold">ـَيْنِ</Ar> (признак — ي).<br/>
+      <strong>Пример النَّصْب:</strong> <Ar className="font-bold text-emerald-800">رَأَيْتُ رَجُلَيْنِ</Ar> (Я видел двух мужчин). Слово رَجُلَيْنِ в состоянии النَّصْب, так как это مَفْعُولٌ بِهِ (объект действия).<br/>
+      <strong>Пример الْجَرّ:</strong> <Ar className="font-bold text-emerald-800">فَرِحْتُ بِهَدِيَّتَيْنِ</Ar> (Я обрадовался двум подаркам). Слово هَدِيَّتَيْنِ в состоянии الْجَرّ, так как перед ним стоит حَرْفُ جَرٍّ (предлог بِـ).
+      </NumItem>
     </div>
   </div>
 );
+
 const LText6=()=>(
   <div>
     <LH n="6" ar="جَمْعُ الْمُذَكَّرِ السَّالِمِ" sub="Правильное мужское мн. число" />
-    <H3><T id="jam_muzakkar" big /></H3>
-    <P>Образование: добавить <Ar className="font-bold text-blue-700">ـُونَ</Ar> (рафа') или <Ar className="font-bold text-blue-700">ـِينَ</Ar> (насб/джарр).</P>
-    <Exa items={[['مُسْلِمٌ → مُسْلِمُونَ / مُسْلِمِينَ','мусульмане'],['مُدَرِّسٌ → مُدَرِّسُونَ / مُدَرِّسِينَ','учителя']]} />
-    <H3>Условия:</H3>
+    <P>Если мы хотим преобразовать слово во множественное число, мы используем один из трех видов:</P>
+    <ul className="list-disc pl-5 mb-3 text-sm space-y-2">
+      <li><T id="jam_muzakkar" /> (Правильное мужское)</li>
+      <li><T id="jam_muannas" /> (Правильное женское)</li>
+      <li><T id="jam_taksir" /> (Ломаное)</li>
+    </ul>
+
+    <H3>١. <T id="jam_muzakkar" big /></H3>
+    <P>Его также называют правильным или здоровым. Образуется путем добавления к концу слова в единственном числе:</P>
+    <ul className="list-disc pl-5 mb-2 text-sm">
+      <li>Окончания <Ar className="font-bold text-blue-700">ـُونَ</Ar> — если слово в состоянии الرَّفْع.</li>
+      <li>Окончания <Ar className="font-bold text-blue-700">ـِينَ</Ar> — если слово в состоянии النَّصْب или الْجَرّ.</li>
+    </ul>
+    <Exa items={[['مُسْلِمٌ ← مُسْلِمُونَ / مُسْلِمِينَ','мусульмане'],['مُدَرِّسٌ ← مُدَرِّسُونَ / مُدَرِّسِينَ','учителя'],['مُهَنْدِسٌ ← مُهَنْدِسِينَ','инженеров / инженерам']]} />
+    
+    <P className="font-bold mt-3">Почему этот вид назвали «правильным/здоровым»?</P>
+    <P>Потому что при переходе во множественное число все буквы корня сохраняются в целости, к ним просто добавляется окончание.</P>
+
+    <H3>Условия для образования:</H3>
     <div className="my-2 space-y-1.5">
-      <NumItem n="١">Слово — <T id="muzakkar" />.</NumItem>
-      <NumItem n="٢">Слово — <strong>разумное (عَاقِل)</strong>: Аллах, ангелы, джинны, люди.</NumItem>
+      <NumItem n="١">Слово должно быть <strong>мужского рода</strong> (مُذَكَّر).</NumItem>
+      <NumItem n="٢">Слово должно быть <strong>«разумным» (عَاقِل)</strong>. В арабском языке к разумным относятся те, кто обладает разумом и волей. Остальные предметы и животные — неразумные (غَيْرُ عَاقِل).</NumItem>
     </div>
-    <RuleBox>Иногда разумные слова образуют ломаное мн.ч.: <Ar>طَالِبٌ → طُلَّابٌ</Ar>. Проверять по словарю!</RuleBox>
+    
+    <NoteBox>
+      <strong>Важное примечание:</strong> по отношению к Аллаху хоть и употребляются частицы для разумного, но из-за адаба мы не относим Аллаха в категорию разумных из соображений осторожности, потому что это не пришло ни в Коране, ни в Сунне. Поэтому мы придерживаемся пути Ибн Хишама.
+    </NoteBox>
+    <NoteBox>
+      <strong>Исключение:</strong> Даже если слово мужского рода и разумное, оно не всегда образует правильное множественное число. Иногда оно образует ломаное (جَمْعُ التَّكْسِيرِ).<br/>
+      Пример: <Ar className="font-bold">طَالِبٌ ← طُلَّابٌ</Ar> (студенты).
+    </NoteBox>
+
+    <P>Слова, которые полностью подходят под правило:</P>
+    <Exa items={[['مُؤْمِنٌ ← مُؤْمِنُونَ','верующие'],['مُسَافِرٌ ← مُسَافِرُونَ','путники']]} />
   </div>
 );
+
 const LText7=()=>(
   <div>
     <LH n="7" ar="جَمْعُ الْمُؤَنَّثِ السَّالِمِ وَجَمْعُ التَّكْسِيرِ" sub="Женское и ломаное мн. число" />
     <H3>٢. <T id="jam_muannas" big /></H3>
-    <RuleBox>Убрать <Ar>ة</Ar> → добавить <Ar className="text-red-600 font-bold">ـَاتٌ</Ar>.</RuleBox>
-    <Exa items={[['سَيَّارَةٌ → سَيَّارَاتٌ','машины'],['طَالِبَةٌ → طَالِبَاتٌ','студентки'],['زَيْنَبُ → زَيْنَبَاتٌ','(без ة)']]} />
+    <P>Правильное («здоровое») множественное число женского рода. Образуется путем добавления в конец слова окончания <Ar className="text-red-600 font-bold">ـَاتٌ</Ar>.</P>
+    
+    <RuleBox>
+      <strong>Правило для слов, оканчивающихся на «ة»:</strong><br/>
+      Эта ة удаляется, а вместо нее добавляется окончание ــَاتٌ.
+    </RuleBox>
+    <Exa items={[['سَيَّارَةٌ ← سَيَّارَاتٌ','машины'],['طَالِبَةٌ ← طَالِبَاتٌ','студентки'],['سَجَّادَةٌ ← سَجَّادَاتٌ','ковры']]} />
+    
+    <P className="font-bold mt-2">Что делать, если в слове нет «ة»?</P>
+    <P>Например, женское имя زَيْنَبُ. Хвала Аллаху, здесь еще проще: мы просто добавляем ـَاتٌ:</P>
+    <Exa items={[['زَيْنَبُ ← زَيْنَبَاتٌ','Зайнабы (больше 2-х девочек/женщин с таким именем)']]} />
+    <NoteBox>Словарная подсказка: в арабских словарях правильное множественное число женского рода часто обозначается просто буквами <strong>ات</strong>.</NoteBox>
+
     <H3>٣. <T id="jam_taksir" big /></H3>
-    <RuleBox>Формулы нет — только запоминание! Структура «ломается».</RuleBox>
-    <Exa items={[['كِتَابٌ → كُتُبٌ','книги (ا пропала)'],['طَالِبٌ → طُلَّابٌ','студенты'],['غُرْفَةٌ → غُرَفٌ','комнаты'],['نَجْمٌ → نُجُومٌ','звёзды']]} />
+    <P>Плохие новости об этом виде: 1. Большинство слов образуют мн.ч. именно так. 2. У него нет одной определенной формулы. Слова нужно просто заучивать наизусть!</P>
+    
+    <P className="font-bold">Почему оно называется «ломаным» (تَكْسِير)?</P>
+    <P>Потому что при изменении «ломается» структура букв корня. Буквы могут исчезать, добавляться новые, меняться огласовки.</P>
+    <Exa items={[['كِتَابٌ ← كُتُبٌ','книги (алиф ا пропала)'],['طَالِبٌ ← طُلَّابٌ','студенты'],['غُرْفَةٌ ← غُرَفٌ','комнаты'],['نَجْمٌ ← نُجُومٌ','звёзды']]} />
   </div>
 );
+
 const LText8=()=>(
   <div>
-    <LH n="8" ar="النَّكِرَةُ وَالْمَعْرِفَةُ" sub="Определённость имени" />
-    <NoteBox>В магазине: <Ar>أُرِيدُ قَلَمًا</Ar> — любую ручку. <Ar>أُرِيدُ الْقَلَمَ</Ar> — конкретную ручку!</NoteBox>
-    <H3>١. <T id="nakira" big /> — неопределённое</H3>
-    <DefBox ru="Указывает на нечто неопределённое или общее." />
-    <H3>٢. <T id="marifa" big /> — определённое</H3>
-    <DefBox ru="Указывает на нечто конкретное, известное. 6 видов:" />
+    <LH n="8" ar="النَّكِرَةُ وَالْمَعْرِفَةُ" sub="Определённость и неопределённость" />
+    <NoteBox>
+      Представьте, что вы работаете в магазине канцтоваров в арабской стране. Заходит покупатель и говорит: <Ar className="font-bold">أُرِيدُ قَلَمًا</Ar> («Я хочу ручку»). Заходит другой покупатель и говорит: <Ar className="font-bold">أُرِيدُ الْقَلَمَ</Ar>. Если вы не поняли, какие именно ручки они хотели, этот урок для вас!
+    </NoteBox>
+    
+    <H3>١. <T id="nakira" big /> — неопределенное</H3>
+    <DefBox ru="Указывает на что-то неопределенное или общее. Неизвестно какая ручка (любая вообще)." />
+    <Exa items={[['قَلَمٌ','какая-то ручка'],['كِتَابٌ','какая-то книга']]} />
+
+    <H3>٢. <T id="marifa" big /> — определенное</H3>
+    <DefBox ru="Указывает на нечто определенное, конкретное и известное." />
+    
+    <H4>6 видов Имени, которые относятся к الْمَعْرِفَةُ:</H4>
     <div className="my-2 space-y-1.5">
-      <NumItem n="١">Местоимения: <Ar>أَنَا، أَنْتَ، هُوَ</Ar></NumItem>
-      <NumItem n="٢">Указательные: <Ar>هَذَا، هَذِهِ</Ar></NumItem>
-      <NumItem n="٣">Относительные: <Ar>الَّذِي، الَّتِي</Ar></NumItem>
-      <NumItem n="٤">Имена собственные: <Ar>مُحَمَّدٌ، مَكَّةُ</Ar></NumItem>
-      <NumItem n="٥">С артиклем ال: <Ar>كِتَابٌ → الْكِتَابُ</Ar> (убрать танвин!)</NumItem>
-      <NumItem n="٦">Идафа: <Ar>كِتَابُ مُحَمَّدٍ، كِتَابُكَ</Ar></NumItem>
+      <NumItem n="١"><strong>Все местоимения</strong> (<Ar>الضَّمَائِرُ</Ar>): <Ar>أَنَا، أَنْتَ، هُوَ، هِيَ</Ar></NumItem>
+      <NumItem n="٢"><strong>Все указательные местоимения</strong> (<Ar>أَسْمَاءُ الْإِشَارَةِ</Ar>): <Ar>هَذَا، هَذِهِ</Ar></NumItem>
+      <NumItem n="٣"><strong>Относительные местоимения</strong> (<Ar>الْأَسْمَاءُ الْمَوْصُولَةُ</Ar>): <Ar>الَّذِي، الَّتِي</Ar></NumItem>
+      <NumItem n="٤"><strong>Имя собственное</strong> (<Ar>الْعَلَمُ</Ar>):
+        <ul className="list-disc pl-5 mt-1 text-xs text-gray-600">
+          <li>Имена: <Ar>مُحَمَّدٌ، زَيْنَبُ</Ar></li>
+          <li>Местности: <Ar>مَكَّةُ، مِصْرُ، بَغْدَادُ</Ar></li>
+          <li>Прозвища (<Ar>اللَّقَب</Ar>): <Ar>الْفَارُوقُ، ذُو النُّورَيْنِ، سَيْفُ اللَّهِ</Ar></li>
+          <li>Кунья (<Ar>أَبُو / أُمّ</Ar>): <Ar>أَبُو بَكْرٍ، أُمُّ فَاطِمَةَ</Ar></li>
+        </ul>
+      </NumItem>
+      <NumItem n="٥"><strong>Слова с артиклем ال</strong>: <Ar>كِتَابٌ ← الْكِتَابُ</Ar>.<br/><span className="text-red-600">Важно:</span> При добавлении ال нужно обязательно убрать танвин. ال и танвин никогда не пишутся вместе!</NumItem>
+      <NumItem n="٦"><strong>الْإِضَافَةُ</strong> (присоединение к الْمَعْرِفَةُ): <Ar>كِتَابُ مُحَمَّدٍ</Ar> (Книга Мухаммада), <Ar>كِتَابُكَ</Ar> (Твоя книга).</NumItem>
     </div>
+
+    <P className="font-bold mt-4">Ответ на вопрос из начала урока:</P>
+    <P>Первый хотел <strong>любую</strong> ручку (<Ar>قَلَمًا</Ar> — النَّكِرَةُ). Второй хотел <strong>конкретную</strong> ручку (<Ar>الْقَلَمَ</Ar> — الْمَعْرِفَةُ), о которой они говорили ранее или на которую он указывает.</P>
   </div>
 );
+
 const LText9=()=>(
   <div>
     <LH n="9" ar="الضَّمَائِرُ الْمُنْفَصِلَةُ" sub="Раздельные местоимения" />
-    <P>Два вида: <T id="munfasil" /> (отдельно) и <T id="muttasil" /> (слитно).</P>
-    <H3>١. <T id="mutakallim" big /> — 1 лицо</H3>
-    <Exa items={[['أَنَا','Я (м и ж)'],['نَحْنُ','Мы (м и ж)']]} />
-    <H3>٢. <T id="mukhatab" big /> — 2 лицо</H3>
-    <Exa items={[['أَنْتَ','Ты (м)'],['أَنْتِ','Ты (ж)'],['أَنْتُمَا','Вы двое'],['أَنْتُمْ','Вы (м, 3+)'],['أَنْتُنَّ','Вы (ж, 3+)']]} />
-    <H3>٣. <T id="ghaib" big /> — 3 лицо</H3>
-    <Exa items={[['هُوَ','Он'],['هِيَ','Она'],['هُمَا','Они двое'],['هُمْ','Они (м, 3+)'],['هُنَّ','Они (ж, 3+)']]} />
+    <P>В арабском <Ar className="font-bold">ضَمِيرٌ</Ar> — местоимение (мн.ч. <Ar>ضَمَائِرُ</Ar>).<br/>
+    <span className="italic text-gray-500 text-xs">Интересный факт: Глагол, от которого образовано это слово, переводится как «скрывать, прятать». Почему? Ответим в конце темы ин щаа Аллах.</span></P>
+
+    <P>Местоимения делятся на две основные группы:</P>
+    <div className="my-2 space-y-1.5">
+      <NumItem n="١"><T id="muttasil" /> (Слитные). Сливаются со словами. Пример: <Ar className="font-bold">كِتَابِي</Ar> (моя книга).</NumItem>
+      <NumItem n="٢"><T id="munfasil" /> (Раздельные). Пишутся отдельно, можно начинать предложение.</NumItem>
+    </div>
+
+    <H3>Раздельные местоимения (الضَّمَائِرُ الْمُنْفَصِلَةُ)</H3>
+    <P>Делятся на три вида (по лицам). Важно учитывать род и число.</P>
+
+    <H4>1. الْمُتَكَلِّمُ (1 лицо — Говорящий)</H4>
+    <P className="text-xs text-gray-600 mb-1">Универсальны для мужского и женского рода:</P>
+    <Exa items={[['أَنَا','Я (أَنَا مُسْلِمٌ / مُسْلِمَةٌ)'],['نَحْنُ','Мы (نَحْنُ مُسْلِمُونَ / مُسْلِمَاتٌ)']]} />
+
+    <H4>2. الْمُخَاطَبُ (2 лицо — Собеседник)</H4>
+    <Exa items={[['أَنْتَ','Ты (обращение к мужчине)'],['أَنْتِ','Ты (обращение к женщине)'],['أَنْتُمَا','Вы (двойственное, строго двум людям независимо от пола)'],['أَنْتُمْ','Вы (муж. мн.ч., от 3-х человек)'],['أَنْتُنَّ','Вы (жен. мн.ч., от 3-х человек)']]} />
+
+    <H4>3. الْغَائِبُ (3 лицо — Отсутствующий)</H4>
+    <Exa items={[['هُوَ','Он (мужчина)'],['هِيَ','Она (женщина)'],['هُمَا','Они (двойственное, строго двум людям независимо от пола)'],['هُمْ','Они (муж. мн.ч.)'],['هُنَّ','Они (жен. мн.ч.)']]} />
   </div>
 );
+
 const LText10=()=>(
   <div>
     <LH n="10" ar="الضَّمَائِرُ الْمُتَّصِلَةُ" sub="Слитные местоимения" />
-    <P>Присоединяются к концу <T id="ism" />, <T id="fiil" /> и <T id="harf" />.</P>
-    <Exa items={[['كِتَابِي','моя книга'],['ضَرَبَنِي','он ударил меня'],['فِيهِ','в нём']]} />
-    <H3>По лицам:</H3>
-    <H4><T id="mutakallim" big /></H4>
-    <Exa items={[['كِتَابِي','(ي)'],['فِيَّ / إِلَيَّ','во мне / ко мне']]} />
-    <H4><T id="mukhatab" big /></H4>
-    <Exa items={[['كِتَابُكَ','(أنتَ)'],['كِتَابُكِ','(أنتِ)'],['كِتَابُكُمْ','(أنتم)']]} />
-    <H4><T id="ghaib" big /></H4>
-    <Exa items={[['كِتَابُهُ / فِيهِ','(هو)'],['كِتَابُهَا / فِيهَا','(هي)'],['كِتَابُهُمْ','(هم)']]} />
+    <P className="font-bold">Для чего нужны слитные местоимения?</P>
+    <P>Они используются для сокращения и лаконичности речи.</P>
+    <DefBox ar="ذَهَبَ مُحَمَّدٌ إِلَى الْمَدْرَسَةِ وَفِي يَدِهِ كِتَابٌ وَفِيهِ كَلِمَاتٌ جَدِيدَةٌ" ru="Мухаммад пошел в школу. И в его руке (يَدِهِ) книга. И в ней (فِيهِ) новые слова." />
+    <P className="text-xs text-gray-600">Пояснение: Вместо того чтобы говорить «в руке Мухаммада», присоединяется местоимение <Ar>ـهِ</Ar> (его). Вместо повторения слова «книга», используется <Ar>ـهِ</Ar> (так как: كلمة كِتَابٌ является مُذَكَّر).</P>
+
+    <H3>К чему присоединяются?</H3>
+    <ul className="list-disc pl-5 mb-3 text-sm">
+      <li><strong>الِاسْمُ (Имя)</strong> – существительным.</li>
+      <li><strong>الْفِعْلُ (Глагол)</strong> — прошедшего, настоящего и повелительного времени.</li>
+      <li><strong>الْحَرْفُ (Частица)</strong> — предлогам (в, из, к).</li>
+    </ul>
+
+    <H3>Разбор по лицам</H3>
+    
+    <H4>1. الْمُتَكَلِّمُ (1 лицо)</H4>
+    <P className="text-xs"><strong>أَنَا</strong> заменяется на <Ar className="font-bold text-fuchsia-700">ي</Ar> (с глаголами <Ar className="font-bold text-fuchsia-700">ـْنِي</Ar>):</P>
+    <Exa items={[['كِتَابِي','моя книга'],['ضَرَبَنِي','он ударил меня'],['فِيَّ / إِلَيَّ','во мне / ко мне']]} />
+    <P className="text-xs mt-2"><strong>نَحْنُ</strong> заменяется на <Ar className="font-bold text-fuchsia-700">نَا</Ar>:</P>
+    <Exa items={[['كِتَابُنَا','наша книга'],['فِينَا','в нас']]} />
+
+    <H4>2. الْمُخَاطَبُ (2 лицо)</H4>
+    <P className="text-xs">Обращение к тем, кто стоит перед нами:</P>
+    <Exa items={[['كِتَابُكَ / ضَرَبَكَ','Твоя книга / тебя избили (м.р. كَ)'],['كِتَابُكِ','твоя (ж.р. كِ)'],['كِتَابُكُمَا','ваша (для двоих людей независимо от пола كُمَا)'],['كِتَابُكُمْ / عَلَيْكُمْ','ваша / на вас (м.р. мн.ч. كُمْ)'],['كِتَابُكُنَّ','ваша (ж.р. мн.ч. كُنَّ)']]} />
+
+    <H4>3. الْغَائِبُ (3 лицо — Обращено отсутствующему)</H4>
+    <P className="text-xs">Похожи на свои раздельные формы:</P>
+    <Exa items={[['كِتَابُهُ / فِيهِ','его / в нем (هَ هِ м.р ед.ч.)'],['كِتَابُهَا / فِيهَا','ее / в ней (هَا ж.р. ед.ч.)'],['كِتَابُهُمَا','их (для двоих людей независимо от пола هُمَا)'],['كِتَابُهُمْ','их (هُمْ мн.ч. м.р.)'],['كِتَابُهُنَّ','их (هُنَّ мн.ч. ж.р.)']]} />
+    
+    <NoteBox>В арабском языке слово, которое относится к мужскому роду, в русском может относиться к женскому роду и наоборот. Обращайте на это внимание!</NoteBox>
   </div>
 );
+
 const LText11=()=>(
   <div>
     <LH n="11" ar="أَقْسَامُ الْجُمْلَةِ" sub="Виды предложений" />
-    <H3>١. <Ar className="font-bold text-teal-800">الْجُمْلَةُ الِاسْمِيَّةُ</Ar></H3>
-    <DefBox ar="هِيَ الَّتِي تَبْدَأُ بِالِاسْمِ" ru="Начинается с имени. Два члена: мубтада + хабар." />
-    <RuleBox>Оба всегда в <T id="rafaa" />. <T id="mubtada" /> всегда <T id="marifa" />.</RuleBox>
-    <DefBox ar="الْمُعَلِّمَانِ مَاهِرَانِ" ru="Два учителя умелы. (Оба в рафа')" />
-    <H3>٢. <Ar className="font-bold text-cyan-800">الْجُمْلَةُ الْفِعْلِيَّةُ</Ar></H3>
-    <DefBox ar="هِيَ الَّتِي تَبْدَأُ بِالْفِعْلِ" ru="Начинается с глагола." />
+    <P>Каждый язык состоит из текстов (<Ar>نَصٌّ</Ar>). Каждый текст состоит из предложений (<Ar>جُمْلَةٌ</Ar>). Каждое предложение состоит из слов (<Ar>كَلِمَةٌ</Ar>).</P>
+    
+    <P>Предложение (<Ar>الْجُمْلَةُ</Ar>) делится на два основных вида:</P>
+
+    <H3>١. Именное предложение (<Ar className="font-bold text-teal-800">الْجُمْلَةُ الِاسْمِيَّةُ</Ar>)</H3>
+    <DefBox ar="الْجُمْلَةُ الِاسْمِيَّةُ هِيَ الَّتِي تَبْدَأُ بِالِاسْمِ" ru="Именное предложение — это то, которое начинается с имени." />
+    <NoteBox>Здесь на арабском слово جُمْلَةٌ ж.р., поэтому используется الَّتِي («та, которая...»).</NoteBox>
+    <P>Чтобы предложение называлось именным, в нем обязательно должны присутствовать два главных компонента: <T id="mubtada" /> и <T id="khabar" />.</P>
+    <div className="my-2 space-y-1.5">
+      <NumItem n="١"><strong>الْمُبْتَدَأُ (Подлежащее)</strong>: «начатое». Главное слово, почти всегда стоит в самом начале.</NumItem>
+      <NumItem n="٢"><strong>الْخَبَرُ (Сказуемое)</strong>: «весть/новость». Дает информацию о الْمُبْتَدَأُ.</NumItem>
+    </div>
+    
+    <RuleBox>
+      <strong>Важные правила:</strong><br/>
+      • И الْمُبْتَدَأُ, и الْخَبَرُ всегда должны находиться в состоянии <Ar className="font-bold text-red-600">الرَّفْع</Ar>.<br/>
+      • الْمُبْتَدَأُ в основе всегда должно быть определенным словом — <Ar className="font-bold text-amber-800">مَعْرِفَةٌ</Ar>.
+    </RuleBox>
+    <DefBox ar="الْمُعَلِّمَانِ مَاهِرَانِ" ru="Два учителя умелы." />
+
+    <H3>٢. Глагольное предложение (<Ar className="font-bold text-cyan-800">الْجُمْلَةُ الْفِعْلِيَّةُ</Ar>)</H3>
+    <DefBox ar="الْجُمْلَةُ الْفِعْلِيَّةُ هِيَ الَّتِي تَبْدَأُ بِالْفِعْلِ" ru="Глагольное предложение — это то, которое начинается с глагола." />
     <Exa items={[['ذَهَبَ مُحَمَّدٌ','Ушёл Мухаммад'],['يَقْرَأُ الطَّالِبُ','Студент читает'],['جَاءَ هَؤُلَاءِ','Пришли эти']]} />
   </div>
 );
+
 const LText12=()=>(
   <div>
-    <LH n="12" ar="فِعْلُ الْمَاضِي" sub="Прошедшее время" />
-    <P>Словарная форма — هُوَ мады: <Ar className="font-bold">قَرَأَ — يَقْرَأُ — اِقْرَأْ</Ar> (читать).</P>
-    <RuleBox>При добавлении суффиксов на последнюю букву ставится сукун <Ar>ـْ</Ar>.</RuleBox>
-    <H3><T id="mutakallim" big /></H3>
-    <Exa items={[['ذَهَبْتُ','Я ушёл (+تُ)'],['ذَهَبْنَا','Мы ушли (+نَا)']]} />
-    <H3><T id="mukhatab" big /></H3>
-    <Exa items={[['ذَهَبْتَ','Ты ушёл (+تَ)'],['ذَهَبْتِ','Ты ушла (+تِ)'],['ذَهَبْتُمْ','Вы м (+تُمْ)'],['ذَهَبْتُنَّ','Вы ж (+تُنَّ)']]} />
-    <H3><T id="ghaib" big /></H3>
-    <Exa items={[['ذَهَبَ','Он (основа)'],['ذَهَبَتْ','Она (+تْ)'],['ذَهَبَا','Они 2 (+ا)'],['ذَهَبُوا','Они м (+وا)'],['ذَهَبْنَ','Они ж (+نَ)']]} />
+    <LH n="12" ar="فِعْلُ الْمَاضِي" sub="Слитные местоимения с глаголами" />
+    <Exa items={[['قَرَأَ — يَقْرَأُ — اِقْرَأْ','читать'],['تَوَضَّأَ — يَتَوَضَّأُ — تَوَضَّأْ','умываться'],['صَلَّى — يُصَلِّي — صَلِّ','совершать молитву'],['ذَهَبَ — يَذْهَبُ — اِذْهَبْ','идти'],['سَكَنَ — يَسْكُنُ — اُسْكُنْ','жить']]} />
+    <P className="font-bold mt-3">Почему глаголы изучаются в таком формате?</P>
+    <P>В словарях арабские глаголы обычно даются в форме трех времен: «Он сделал» (прошедшее) — «Он делает» (настоящее) — «Сделай!» (повелительное).</P>
+    <RuleBox>Форма прошедшего времени для 3-го лица мужского рода (<Ar>ذَهَبَ</Ar>) является <strong>основой</strong>. При добавлении большинства местоимений на последнюю букву основы ставится сукун <Ar>ـْ</Ar>.</RuleBox>
+
+    <H3>1. الْمُتَكَلِّمُ (1-е лицо)</H3>
+    <Exa items={[['ذَهَبْتُ / سَكَنْتُ','я пошел / я жил (+تُ для м.р. и ж.р. ед.ч.)'],['ذَهَبْنَا / سَكَنَّا','мы пошли / мы жили (+نَا для м.р. и ж.р.)']]} />
+    <P className="text-xs text-gray-500">(Примечание: в سَكَنَّا два «ن ن» слились в один с шаддой).</P>
+
+    <H3>2. الْمُخَاطَبُ (2-е лицо)</H3>
+    <Exa items={[['ذَهَبْتَ / قَرَأْتَ','ты ушел / читал (м.р. +تَ)'],['ذَهَبْتِ / قَرَأْتِ','ты ушла / читала (ж.р. +تِ)'],['ذَهَبْتُمَا / سَكَنْتُمَا','вы двое ушли / жили (+تُمَا двойственное независимо от пола)'],['ذَهَبْتُمْ / قَرَأْتُمْ','вы ушли / читали (м.р. мн.ч. +تُمْ)'],['ذَهَبْتُنَّ / سَكَنْتُنَّ','вы ушли / жили (ж.р. мн.ч. +تُنَّ)']]} />
+
+    <H3>3. الْغَائِبُ (3-е лицо)</H3>
+    <Exa items={[['ذَهَبَ','он ушел (основа)'],['ذَهَبَتْ / سَكَنَتْ','она ушла / жила (+تْ)'],['ذَهَبَا / سَكَنَا','они двое ушли / жили (+ا для двоих независимо от пола)'],['ذَهَبُوا / قَرَأُوا','они ушли / читали (м.р. +وا)'],['ذَهَبْنَ / سَكَنَّ','они ушли / жили (ж.р. +نَ)']]} />
+    <P className="text-xs text-gray-500">(Примечание: для женского рода двойственного числа форма будет ذَهَبَتَا — добавляется تَا).</P>
   </div>
 );
+
 const LText13=()=>(
   <div>
-    <LH n="13" ar="فِعْلُ الْمُضَارِعِ وَالْأَمْرِ" sub="Настоящее/будущее и повелительное" />
-    <H3><T id="mudari" big /></H3>
-    <H4><T id="mutakallim" big /></H4>
-    <Exa items={[['أَذْهَبُ','Я иду (أَ+)'],['نَذْهَبُ','Мы идём (نَ+)']]} />
-    <H4><T id="mukhatab" big /></H4>
-    <Exa items={[['تَذْهَبُ','Ты м (تَ+)'],['تَذْهَبِينَ','Ты ж (+ينَ)'],['تَذْهَبُونَ','Вы м (+ونَ)'],['تَذْهَبْنَ','Вы ж (+نَ)']]} />
-    <H4><T id="ghaib" big /></H4>
-    <Exa items={[['يَذْهَبُ','Он (يَ+)'],['تَذْهَبُ','Она (تَ+)'],['يَذْهَبُونَ','Они м (+ونَ)'],['يَذْهَبْنَ','Они ж (+نَ)']]} />
-    <H3><T id="amr" big /> — только <T id="mukhatab" /></H3>
-    <Exa items={[['اِذْهَبْ','Иди! м (основа)'],['اِذْهَبِي','Иди! ж (+ي)'],['اِذْهَبُوا','Идите! м (+وا)']]} />
-    <NoteBox><T id="amr" /> всегда <T id="mabni" />. Только для 2-го лица.</NoteBox>
+    <LH n="13" ar="فِعْلُ الْمُضَارِعِ وَالْأَمْرِ" sub="Слитные местоимения с глаголами" />
+    <H3>فِعْلُ الْمُضَارِعِ (Настоящее/будущее время)</H3>
+    
+    <H4>1. الْمُتَكَلِّمُ (1-е лицо)</H4>
+    <P className="text-xs text-gray-600 mb-1">Добавляются приставки أَ или نَ:</P>
+    <Exa items={[['أَذْهَبُ','я иду'],['أَقْرَأُ','я читаю'],['آكُلُ','я ем'],['أَنَامُ','я сплю'],['أَسْتَيْقِظُ','я просыпаюсь'],['نَذْهَبُ','мы идем']]} />
+
+    <H4>2. الْمُخَاطَبُ (2-е лицо)</H4>
+    <P className="text-xs text-gray-600 mb-1">Добавляется приставка تَـ и суффиксы:</P>
+    <Exa items={[['تَذْهَبُ','ты идешь (м.р.)'],['تَذْهَبِينَ','ты идешь (ж.р. +ينَ)'],['تَذْهَبَانِ','вы двое идете (+َانِ)'],['تَذْهَبُونَ','вы идете (м.р. мн.ч. +ُونَ)'],['تَذْهَبْنَ','вы идете (ж.р. мн.ч. +ْنَ)']]} />
+
+    <H4>3. الْغَائِبُ (3-е лицо)</H4>
+    <P className="text-xs text-gray-600 mb-1">Добавляются приставки يَـ / تَـ и суффиксы:</P>
+    <Exa items={[['يَذْهَبُ','он идет'],['تَذْهَبُ','она идет'],['يَذْهَبَانِ','они двое идут (м.р. يَـ + َانِ)'],['يَذْهَبُونَ','они идут (м.р. يَـ + ُونَ)'],['يَذْهَبْنَ','они идут (ж.р. يَـ + ْنَ)']]} />
+
+    <H3>Введение в فِعْلُ الْأَمْرِ (Повелительное)</H3>
+    <P>Образуется для 2-го лица (собеседника):</P>
+    <Exa items={[['اِذْهَبْ','Иди! (м.р.)'],['اِذْهَبِي','Иди! (ж.р. +ي)'],['اِذْهَبَا','Идите! (двое +ا)'],['اِذْهَبُوا','Идите! (м.р. мн.ч. +وا)']]} />
+    <NoteBox>
+      <Ar className="font-bold">ا</Ar> в конце <Ar>قَرَأُوا / اِذْهَبُوا</Ar> — нечитаемый алиф.
+    </NoteBox>
   </div>
 );
 
@@ -1279,17 +1553,14 @@ const App=()=>{
   const ticking=useRef(false);
   const containerRef=useRef(null);
   const isDragging=useRef(false);
-  /* OPT-9: dragState initial value corrected to match the fields actually used
-     by onDividerDown/onMove (startClientX, startRatio, startCw), removing
-     the stale {startX, startDivX} names that were left from an older implementation */
   const dragState=useRef({startClientX:0,startRatio:0.5,startCw:0});
   const divRatioRef=useRef(0.5);
   const scaleRef=useRef(1);
-  /* Per-panel horizontal pan — each side scrolls independently, divider never moves */
-  const leftContentRef=useRef(null);   /* inner wrapper in left panel  */
-  const rightContentRef=useRef(null);  /* inner wrapper in right panel */
-  const offsetLRef=useRef(0);          /* current translateX of left content  */
-  const offsetRRef=useRef(0);          /* current translateX of right content */
+  /* Per-panel horizontal pan — refs for content wrappers and their current offsets */
+  const leftContentRef=useRef(null);
+  const rightContentRef=useRef(null);
+  const offsetLRef=useRef(0);
+  const offsetRRef=useRef(0);
   const panState=useRef({side:null,startX:0,startOffset:0});
 
   const applyDivX=useCallback((c,divXViewport,cwViewport)=>{
@@ -1322,11 +1593,6 @@ const App=()=>{
     const cw=c.getBoundingClientRect().width;
     c.classList.add('container-snapping');
     applyDivX(c,Math.max(0,Math.min(1,ratio))*cw,cw);
-    /* OPT-10: listen for transitionend on .layer-right (the element actually
-       transitioning clip-path) rather than on the container. Using the container
-       previously worked via event bubbling but was ambiguous when multiple
-       child transitions fired. Targeting the animating element directly is
-       unambiguous and removes the class at exactly the right moment. */
     const layerRight=c.querySelector('.layer-right');
     const cleanup=()=>c.classList.remove('container-snapping');
     (layerRight||c).addEventListener('transitionend',cleanup,{once:true});
@@ -1344,38 +1610,21 @@ const App=()=>{
     e.preventDefault();
   },[]);
 
-  /* applyPanOffset — writes translateX to the inner content wrapper of a panel */
-  const applyPanOffset=useCallback((side,offset)=>{
-    if(side==='left'){
-      offsetLRef.current=offset;
-      if(leftContentRef.current)leftContentRef.current.style.transform=`translateX(${offset}px)`;
-    }else{
-      offsetRRef.current=offset;
-      if(rightContentRef.current)rightContentRef.current.style.transform=`translateX(${offset}px)`;
-    }
-  },[]);
-
-  /* onPanelDown — starts a per-panel horizontal pan; divider stays untouched */
+  /* Starts a per-panel content pan when the user drags inside a panel (not the divider) */
   const onPanelDown=useCallback((e)=>{
-    if(e.target.closest('.col-divider'))return; /* divider has its own handler */
+    if(e.target.closest('.col-divider'))return;
     if(isDragging.current)return;
     const c=containerRef.current;
     if(!c)return;
     const rect=c.getBoundingClientRect();
-    /* Determine which panel was touched */
     const s=scaleRef.current||1;
-    const divXViewport=parseFloat(c.style.getPropertyValue('--div-x')||'0')*s||rect.width*divRatioRef.current;
-    const side=(e.clientX-rect.left)<divXViewport?'left':'right';
-    panState.current={
-      side,
-      startX:e.clientX,
-      startOffset:side==='left'?offsetLRef.current:offsetRRef.current,
-    };
+    const divXPx=parseFloat(c.style.getPropertyValue('--div-x')||'0')*s||rect.width*divRatioRef.current;
+    const side=(e.clientX-rect.left)<divXPx?'left':'right';
+    panState.current={side,startX:e.clientX,startOffset:side==='left'?offsetLRef.current:offsetRRef.current};
   },[]);
 
   useEffect(()=>{
     const onMove=(e)=>{
-      /* ── Divider drag (priority) ── */
       if(isDragging.current){
         const c=containerRef.current;
         if(!c)return;
@@ -1385,16 +1634,20 @@ const App=()=>{
         applyDivX(c,newRatio*cw,cw);
         return;
       }
-
-      /* ── Per-panel content pan ── */
+      /* Per-panel content pan */
       const ps=panState.current;
       if(!ps.side)return;
-      const dx=e.clientX-ps.startX;
-      applyPanOffset(ps.side,ps.startOffset+dx);
+      const offset=ps.startOffset+(e.clientX-ps.startX);
+      if(ps.side==='left'){
+        offsetLRef.current=offset;
+        if(leftContentRef.current)leftContentRef.current.style.transform=`translateX(${offset}px)`;
+      }else{
+        offsetRRef.current=offset;
+        if(rightContentRef.current)rightContentRef.current.style.transform=`translateX(${offset}px)`;
+      }
     };
 
     const onUp=()=>{
-      /* ── Divider drag end ── */
       if(isDragging.current){
         isDragging.current=false;
         document.body.style.userSelect='';
@@ -1408,8 +1661,6 @@ const App=()=>{
         if(t!==divRatioRef.current)snapTo(t);
         return;
       }
-
-      /* ── Panel pan end — just stop, no snap needed for content offset ── */
       panState.current={side:null,startX:0,startOffset:0};
     };
 
@@ -1472,8 +1723,6 @@ const App=()=>{
       <ZoomPanel scale={scale} zoomIn={zoomIn} zoomOut={zoomOut} resetZoom={resetZoom} />
       <div id="app-shell" className="flex flex-col bg-[#d6d3cd]">
         <header className="flex-shrink-0 h-10 bg-emerald-800 flex items-center px-3 gap-3 shadow-md z-30">
-          <Ar className="text-white font-bold text-sm leading-none">عبد الأحد</Ar>
-          <div className="w-px h-4 bg-emerald-600" aria-hidden="true"></div>
           <span className="text-emerald-200 text-[11px] font-medium truncate">Арабская Грамматика — Уроки 1–13</span>
           <div className="ml-auto flex items-center gap-2.5 shrink-0">
             <span className="text-emerald-300 text-[10px]" aria-live="polite">{active}/13</span>
@@ -1501,7 +1750,6 @@ const App=()=>{
           <div className="antagonist-layer layer-left">
             <div ref={leftRef} className="l-scroll flex-1 min-h-0 overflow-y-auto px-3 py-3"
                  style={{overflowX:'hidden',touchAction:'pan-y'}}>
-              {/* leftContentRef wrapper: receives translateX for horizontal panel pan */}
               <div ref={leftContentRef} style={{willChange:'transform'}}>
                 {LESSONS.map((l,i)=>(
                   <div key={l.id}>
@@ -1514,7 +1762,6 @@ const App=()=>{
             </div>
           </div>
           <div className="antagonist-layer layer-right">
-            {/* rightContentRef wrapper: receives translateX for horizontal panel pan */}
             <div ref={rightContentRef} style={{height:'100%',display:'flex',flexDirection:'column',willChange:'transform'}}>
               <div key={active} className="r-scroll panel-enter flex-1 min-h-0 overflow-y-auto"
                    style={{touchAction:'pan-y'}} role="tabpanel">
@@ -1535,5 +1782,14 @@ const App=()=>{
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Заголовок страницы</title>
+</head>
+<body>
+    
 </body>
 </html>
