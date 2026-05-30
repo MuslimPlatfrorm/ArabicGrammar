@@ -21,9 +21,15 @@
     .l-scroll{position:relative; scrollbar-width:thin;scrollbar-color:rgba(52,211,153,.45) transparent;}
     .l-scroll::-webkit-scrollbar{width:4px;}
     .l-scroll::-webkit-scrollbar-thumb{background:rgba(52,211,153,.45);border-radius:99px;}
-    .r-scroll{scrollbar-width:thin;scrollbar-color:rgba(100,116,139,.25) transparent;}
+    .r-scroll{
+      overflow-x:hidden;overflow-y:auto;
+      scrollbar-width:thin;scrollbar-color:rgba(100,116,139,.25) transparent;
+    }
     .r-scroll::-webkit-scrollbar{width:4px;}
     .r-scroll::-webkit-scrollbar-thumb{background:rgba(100,116,139,.25);border-radius:99px;}
+    .r-scroll > *{min-width:0;}
+    .r-scroll p,.r-scroll div,.r-scroll li,.r-scroll td{overflow-wrap:break-word;}
+    .r-scroll [lang="ar"]{word-break:normal;overflow-wrap:normal;}
     .nav-strip{scrollbar-width:none;}
     .nav-strip::-webkit-scrollbar{display:none;}
 
@@ -38,7 +44,6 @@
     /* ── ANTAGONIST MASKING ARCHITECTURE ──────────────────────────────────── */
     .antagonist-layer{
       position:absolute;top:0;left:0;bottom:0;right:0;
-      width:100%;height:100%;
       display:flex;flex-direction:column;
     }
     .layer-left{z-index:1;background:#fdf8f0;}
@@ -109,14 +114,9 @@
       background:#059669;
     }
 
-    .r-scroll{overflow-x:hidden;overflow-y:auto;}
-    .r-scroll > *{min-width:0;}
-    .r-scroll p,.r-scroll div,.r-scroll li,.r-scroll td{overflow-wrap:break-word;}
-    .r-scroll [lang="ar"]{word-break:normal;overflow-wrap:normal;}
-
     .zoom-panel-base{
       position:fixed;z-index:9999;
-      background:rgba(255,255,255,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+      background:rgba(255,255,255,.97);
       border:1px solid #a7f3d0;border-radius:14px;
       padding:3px 5px;display:flex;align-items:center;gap:1px;
       box-shadow:0 4px 18px rgba(5,150,105,.18);
@@ -135,6 +135,14 @@
     .zp-btn:active{background:#a7f3d0;}
     .zp-sep{width:1px;height:16px;background:#a7f3d0;margin:0 2px;flex-shrink:0;}
     .zp-pct{font-size:11px;font-weight:700;color:#065f46;min-width:38px;text-align:center;user-select:none;cursor:grab;}
+
+    /* ── CRITICAL PERFORMANCE ────────────────────────────────────────────── */
+    /* Skip paint+layout for off-screen lesson sections (~12 of 13 at any time) */
+    section[data-lesson]{content-visibility:auto;contain-intrinsic-block-size:700px;}
+    /* Isolate layout recalculation to each panel; prevents cross-panel reflow */
+    .antagonist-layer{contain:layout style;}
+    /* Pre-promote scale wrapper to a GPU compositor layer */
+    .scale-host{will-change:transform;transform-origin:top left;}
 
     /* Базовые отступы сеток */
     .ag2{display:grid;gap:.5rem;}
@@ -161,6 +169,11 @@
 <div id="root"></div>
 <script type="text/babel">
 const {useState,useRef,useEffect,useCallback,memo}=React;
+
+/* ══════════ UTILITIES ══════════ */
+const clamp=(val,min,max)=>Math.max(min,Math.min(val,max));
+const clampSafe=(v,b1,b2)=>{const lo=Math.min(b1,b2),hi=Math.max(b1,b2);return Math.max(lo,Math.min(v,hi));};
+const getBaseW=()=>Math.min(window.innerWidth,1080);
 
 /* ══════════ TERMS ══════════ */
 const TERMS={
@@ -203,14 +216,32 @@ const TERMS={
 /* ══════════ BASE COMPONENTS ══════════ */
 const Ar=({children,className=''})=><span dir="rtl" lang="ar" className={`font-ar leading-[2.1] ${className}`}>{children}</span>;
 
-const T_BG={emerald:'bg-emerald-100',teal:'bg-teal-100',sky:'bg-sky-100',blue:'bg-blue-100',amber:'bg-amber-100',orange:'bg-orange-100',red:'bg-red-100',slate:'bg-slate-100',green:'bg-green-100',rose:'bg-rose-100',pink:'bg-pink-100',purple:'bg-purple-100',fuchsia:'bg-fuchsia-100',indigo:'bg-indigo-100',violet:'bg-violet-100',cyan:'bg-cyan-100',gray:'bg-gray-100',yellow:'bg-yellow-100'};
-const T_BD={emerald:'border-emerald-300',teal:'border-teal-300',sky:'border-sky-300',blue:'border-blue-300',amber:'border-amber-300',orange:'border-orange-300',red:'border-red-300',slate:'border-slate-300',green:'border-green-300',rose:'border-rose-300',pink:'border-pink-300',purple:'border-purple-300',fuchsia:'border-fuchsia-300',indigo:'border-indigo-300',violet:'border-violet-300',cyan:'border-cyan-300',gray:'border-gray-300',yellow:'border-yellow-300'};
-const T_TX={emerald:'text-emerald-800',teal:'text-teal-800',sky:'text-sky-800',blue:'text-blue-800',amber:'text-amber-800',orange:'text-orange-800',red:'text-red-800',slate:'text-slate-700',green:'text-green-800',rose:'text-rose-800',pink:'text-pink-800',purple:'text-purple-800',fuchsia:'text-fuchsia-800',indigo:'text-indigo-800',violet:'text-violet-800',cyan:'text-cyan-800',gray:'text-gray-700',yellow:'text-yellow-800'};
+const TC={
+  emerald:{bg:'bg-emerald-100',bd:'border-emerald-300',tx:'text-emerald-800'},
+  teal:{bg:'bg-teal-100',bd:'border-teal-300',tx:'text-teal-800'},
+  sky:{bg:'bg-sky-100',bd:'border-sky-300',tx:'text-sky-800'},
+  blue:{bg:'bg-blue-100',bd:'border-blue-300',tx:'text-blue-800'},
+  amber:{bg:'bg-amber-100',bd:'border-amber-300',tx:'text-amber-800'},
+  orange:{bg:'bg-orange-100',bd:'border-orange-300',tx:'text-orange-800'},
+  red:{bg:'bg-red-100',bd:'border-red-300',tx:'text-red-800'},
+  slate:{bg:'bg-slate-100',bd:'border-slate-300',tx:'text-slate-700'},
+  green:{bg:'bg-green-100',bd:'border-green-300',tx:'text-green-800'},
+  rose:{bg:'bg-rose-100',bd:'border-rose-300',tx:'text-rose-800'},
+  pink:{bg:'bg-pink-100',bd:'border-pink-300',tx:'text-pink-800'},
+  purple:{bg:'bg-purple-100',bd:'border-purple-300',tx:'text-purple-800'},
+  fuchsia:{bg:'bg-fuchsia-100',bd:'border-fuchsia-300',tx:'text-fuchsia-800'},
+  indigo:{bg:'bg-indigo-100',bd:'border-indigo-300',tx:'text-indigo-800'},
+  violet:{bg:'bg-violet-100',bd:'border-violet-300',tx:'text-violet-800'},
+  cyan:{bg:'bg-cyan-100',bd:'border-cyan-300',tx:'text-cyan-800'},
+  gray:{bg:'bg-gray-100',bd:'border-gray-300',tx:'text-gray-700'},
+  yellow:{bg:'bg-yellow-100',bd:'border-yellow-300',tx:'text-yellow-800'},
+};
 
 const T=({id,big=false})=>{
   const t=TERMS[id];if(!t)return null;
+  const{bg,bd,tx}=TC[t.c];
   return<span title={t.ru} aria-label={t.ru}
-    className={`term-badge inline-flex items-center gap-1 rounded-md border font-bold align-middle ${big?'px-3 py-1.5 text-xs':'px-1.5 py-0.5 text-[11px]'} ${T_BG[t.c]} ${T_BD[t.c]} ${T_TX[t.c]}`}
+    className={`term-badge inline-flex items-center gap-1 rounded-md border font-bold align-middle ${big?'px-3 py-1.5 text-xs':'px-1.5 py-0.5 text-[11px]'} ${bg} ${bd} ${tx}`}
   ><Ar className="leading-tight">{t.ar}</Ar></span>;
 };
 
@@ -230,26 +261,26 @@ const Tbl=memo(({headers,rows,rCls})=>(
 ));
 
 /* ══════════ ARROW CONNECTOR COMPONENTS ══════════ */
-const CLink=({c='emerald',h=8})=><div className={`w-0.5 bg-${c}-400 mx-auto z-0`} style={{height:`${h*4}px`}}></div>;
+const CLink=memo(({c='emerald',h=8})=><div className={`w-0.5 bg-${c}-400 mx-auto z-0`} style={{height:`${h*4}px`}}></div>);
 
-const V2down=({c='emerald'})=>(
+const V2down=memo(({c='emerald'})=>(
   <div className="relative w-full z-0" style={{height:32}}>
     <div className={`absolute top-0 left-1/2 w-0.5 h-4 bg-${c}-400 -ml-px`}></div>
     <div className={`absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-${c}-400`}></div>
     <div className={`absolute top-4 left-[calc(25%-6px)] w-0.5 h-4 bg-${c}-400`}></div>
     <div className={`absolute top-4 right-[calc(25%-6px)] w-0.5 h-4 bg-${c}-400`}></div>
   </div>
-);
-const V2up=({tc='emerald',bc='emerald'})=>(
+));
+const V2up=memo(({tc='emerald',bc='emerald'})=>(
   <div className="relative w-full z-0" style={{height:32}}>
     <div className={`absolute top-0 left-[calc(25%-6px)] w-0.5 h-4 bg-${tc}-400`}></div>
     <div className={`absolute top-0 right-[calc(25%-6px)] w-0.5 h-4 bg-${tc}-400`}></div>
     <div className={`absolute top-4 left-[calc(25%-6px)] right-[calc(25%-6px)] h-0.5 bg-${tc}-400`}></div>
     <div className={`absolute top-4 left-1/2 w-0.5 h-4 bg-${bc}-400 -ml-px`}></div>
   </div>
-);
+));
 
-const V2downSplit=({tc='blue',lc='blue',rc='pink', className=''})=> (
+const V2downSplit=memo(({tc='blue',lc='blue',rc='pink', className=''})=> (
   <div className={`relative w-full z-0 ${className}`} style={{height:32}}>
     <div className={`absolute top-0 left-1/2 w-[2px] h-[16px] -ml-[1px] bg-${tc}-400`}></div>
     <div className={`absolute top-[16px] left-[calc(25%-1px)] right-[calc(50%-1px)] h-[2px] bg-${lc}-400`}></div>
@@ -257,8 +288,8 @@ const V2downSplit=({tc='blue',lc='blue',rc='pink', className=''})=> (
     <div className={`absolute top-[16px] left-[25%] w-[2px] h-[16px] -ml-[1px] bg-${lc}-400`}></div>
     <div className={`absolute top-[16px] right-[25%] w-[2px] h-[16px] -mr-[1px] bg-${rc}-400`}></div>
   </div>
-);
-const V2upSplit=({lc='blue',rc='pink',bc='blue', className=''})=> (
+));
+const V2upSplit=memo(({lc='blue',rc='pink',bc='blue', className=''})=> (
   <div className={`relative w-full z-0 ${className}`} style={{height:32}}>
     <div className={`absolute top-0 left-[25%] w-[2px] h-[16px] -ml-[1px] bg-${lc}-400`}></div>
     <div className={`absolute top-0 right-[25%] w-[2px] h-[16px] -mr-[1px] bg-${rc}-400`}></div>
@@ -266,9 +297,9 @@ const V2upSplit=({lc='blue',rc='pink',bc='blue', className=''})=> (
     <div className={`absolute top-[16px] left-[calc(50%+1px)] right-[calc(25%-1px)] h-[2px] bg-${rc}-400`}></div>
     <div className={`absolute top-[16px] left-1/2 w-[2px] h-[16px] -ml-[1px] bg-${bc}-400`}></div>
   </div>
-);
+));
 
-const V3down=({c='emerald'})=>(
+const V3down=memo(({c='emerald'})=>(
   <div className="relative w-full z-0" style={{height:32}}>
     <div className={`absolute top-0 left-1/2 w-0.5 h-4 bg-${c}-400 -ml-px`}></div>
     <div className={`absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-${c}-400`}></div>
@@ -276,8 +307,8 @@ const V3down=({c='emerald'})=>(
     <div className={`absolute top-4 left-1/2 w-0.5 h-4 bg-${c}-400 -ml-px`}></div>
     <div className={`absolute top-4 right-[calc(16.666%-8px)] w-0.5 h-4 bg-${c}-400`}></div>
   </div>
-);
-const V3up=({tc='emerald',bc='emerald'})=>(
+));
+const V3up=memo(({tc='emerald',bc='emerald'})=>(
   <div className="relative w-full z-0" style={{height:32}}>
     <div className={`absolute top-0 left-[calc(16.666%-8px)] w-0.5 h-4 bg-${tc}-400`}></div>
     <div className={`absolute top-0 left-1/2 w-0.5 h-4 bg-${tc}-400 -ml-px`}></div>
@@ -285,32 +316,32 @@ const V3up=({tc='emerald',bc='emerald'})=>(
     <div className={`absolute top-4 left-[calc(16.666%-8px)] right-[calc(16.666%-8px)] h-0.5 bg-${tc}-400`}></div>
     <div className={`absolute top-4 left-1/2 w-0.5 h-4 bg-${bc}-400 -ml-px`}></div>
   </div>
-);
+));
 
-const BHead=({ar,ru,bg='emerald',lesson})=>(
+const BHead=memo(({ar,ru,bg='emerald',lesson})=>(
   <div className={`inline-block bg-${bg}-50 px-4 py-2 rounded-xl border border-${bg}-200 shadow-sm z-10 text-center w-full`}>
     {lesson&&<div className={`text-[9px] font-bold bg-${bg}-100 text-${bg}-700 border border-${bg}-200 rounded-full px-2 py-0.5 inline-block mb-1`}>Урок {lesson}</div>}
     <h2 className={`text-lg font-bold font-ar text-${bg}-800`}><Ar>{ar}</Ar></h2>
     <p className={`text-[9px] font-normal uppercase text-${bg}-600 tracking-widest`}>({ru})</p>
   </div>
-);
-const LBadge=({n})=>(
+));
+const LBadge=memo(({n})=>(
   <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 mb-1">
     Урок {n}
   </span>
-);
-const IBox=({children,color='emerald'})=>(
+));
+const IBox=memo(({children,color='emerald'})=>(
   <div className={`bg-${color}-50 border border-${color}-200 rounded-lg p-2 text-[11px] text-${color}-900 leading-relaxed`}>{children}</div>
-);
-const RBox=({children})=>(
+));
+const RBox=memo(({children})=>(
   <div className="bg-amber-50 border border-amber-300 rounded-lg p-2 text-[11px] text-amber-900 font-bold text-center leading-relaxed">{children}</div>
-);
-const Ex=({ar,ru})=>(
+));
+const Ex=memo(({ar,ru})=>(
   <div className="flex items-baseline gap-2 py-0.5 flex-wrap">
     <Ar className="text-sm font-bold text-gray-800">{ar}</Ar>
     {ru&&<span className="text-[11px] text-gray-500">— {ru}</span>}
   </div>
-);
+));
 
 /* ══════════ DATA ══════════ */
 const PAST=[
@@ -366,22 +397,20 @@ const rCls=r=>r.muz?'bg-blue-50':r.muan?'bg-pink-50':r.p===1?'bg-slate-50':'';
 const pC=p=>p===1?'bg-blue-50':p===2?'bg-amber-50':'bg-rose-50';
 
 /* ══════════ ZOOM PANEL (С ЖЕСТКИМИ ГРАНИЦАМИ ЭКРАНА) ══════════ */
-const ZoomPanel=({scale,zoomIn,zoomOut,resetZoom})=>{
+const ZoomPanel=memo(({scale,zoomIn,zoomOut,resetZoom})=>{
   const [pos,setPos]=useState({top:16,right:16,left:'auto'});
   const [drag,setDrag]=useState(false);
   const ref=useRef(null);
   const info=useRef({});
   const moved=useRef(false);
 
-  const clamp = (val, min, max) => Math.max(min, Math.min(val, max));
-
-  const onDown=e=>{
+  const onDown=useCallback(e=>{
     if(e.target.closest('button'))return;
     e.preventDefault();
     e.stopPropagation();setDrag(true);moved.current=false;
     const r=ref.current.getBoundingClientRect();
     info.current={sx:e.clientX,sy:e.clientY,rl:r.left,rt:r.top};
-  };
+  },[]);
 
   useEffect(()=>{
     const onMove=e=>{
@@ -446,10 +475,10 @@ const ZoomPanel=({scale,zoomIn,zoomOut,resetZoom})=>{
       </button>
     </div>
   );
-};
+});
 
 /* ══════════ RIGHT PANEL HEADER ══════════ */
-const PH=({n,ar,sub})=>(
+const PH=memo(({n,ar,sub})=>(
   <div className="r-header border-b border-gray-200 px-3 py-2.5 mb-1">
     <div className="flex items-center gap-2 flex-wrap">
       <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shrink-0">УР. {n}</span>
@@ -457,7 +486,7 @@ const PH=({n,ar,sub})=>(
     </div>
     {sub&&<p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
   </div>
-);
+));
 
 /* ══════════ INFO PANELS (Правая панель - КОНСПЕКТЫ) ══════════ */
 const Info1=memo(()=>(
@@ -1048,7 +1077,7 @@ const Info13=memo(()=>(
 ));
 
 /* ══════════ LEFT COLUMN: LESSON HEADING ══════════ */
-const LH=({n,ar,sub})=>(
+const LH=memo(({n,ar,sub})=>(
   <div className="mb-4 pt-1">
     <div className="flex items-center gap-2 mb-1 flex-wrap">
       <span className="bg-emerald-600 text-white text-[11px] font-bold px-3 py-0.5 rounded-full shrink-0">УРОК {n}</span>
@@ -1056,34 +1085,34 @@ const LH=({n,ar,sub})=>(
     </div>
     {sub&&<div className="text-sm font-bold text-stone-700 mt-0.5">{sub}</div>}
   </div>
-);
+));
 
-const P=({children,cl=''})=><p className={`mb-3 text-sm leading-relaxed text-stone-800 ${cl}`}>{children}</p>;
-const H3=({children})=><h3 className="text-sm font-bold text-stone-800 mb-2 mt-4 flex items-center gap-2 flex-wrap">{children}</h3>;
-const H4=({children})=><h4 className="text-xs font-semibold text-stone-700 mb-1.5 mt-3 flex items-center gap-2 flex-wrap">{children}</h4>;
-const Exa=({items})=>(
+const P=memo(({children,cl=''})=><p className={`mb-3 text-sm leading-relaxed text-stone-800 ${cl}`}>{children}</p>);
+const H3=memo(({children})=><h3 className="text-sm font-bold text-stone-800 mb-2 mt-4 flex items-center gap-2 flex-wrap">{children}</h3>);
+const H4=memo(({children})=><h4 className="text-xs font-semibold text-stone-700 mb-1.5 mt-3 flex items-center gap-2 flex-wrap">{children}</h4>);
+const Exa=memo(({items})=>(
   <div className="my-2 bg-stone-100 rounded-xl p-2.5 space-y-2 border border-stone-200">
     {items.map(([ar,ru],i)=><div key={i} className="flex items-center gap-2 flex-wrap">
       <Ar className="text-[16px] font-bold text-stone-900">{ar}</Ar>
       {ru&&<span className="text-[12px] text-stone-500 leading-tight">— {ru}</span>}
     </div>)}
   </div>
-);
-const DefBox=({ar,ru})=>(
+));
+const DefBox=memo(({ar,ru})=>(
   <div className="my-2 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
     {ar&&<Ar className="text-sm font-bold text-amber-900 block text-center mb-1">{ar}</Ar>}
     {ru&&<p className="text-[12px] text-amber-800 text-center italic">{ru}</p>}
   </div>
-);
-const NoteBox=({children})=><div className="my-2 bg-blue-50 border-l-4 border-blue-300 pl-3 py-2 text-[12px] text-blue-800 rounded-r leading-relaxed">{children}</div>;
-const RuleBox=({children})=><div className="my-2 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-[12px] text-emerald-800 font-medium leading-relaxed">{children}</div>;
-const NumItem=({n,children})=><div className="flex gap-2 mb-2 items-start">
+));
+const NoteBox=memo(({children})=><div className="my-2 bg-blue-50 border-l-4 border-blue-300 pl-3 py-2 text-[12px] text-blue-800 rounded-r leading-relaxed">{children}</div>);
+const RuleBox=memo(({children})=><div className="my-2 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-[12px] text-emerald-800 font-medium leading-relaxed">{children}</div>);
+const NumItem=memo(({n,children})=><div className="flex gap-2 mb-2 items-start">
   <span className="text-emerald-600 font-bold text-[12px] min-w-[1.2rem] pt-0.5">{n}.</span>
   <div className="text-[13px] leading-relaxed text-stone-700 flex-1">{children}</div>
-</div>;
+</div>);
 
 /* ══════════ LESSON TEXTS (Левая панель - УЧЕБНИК) ══════════ */
-const LText1=()=>(
+const LText1=memo(()=>(
   <div>
     <LH n="1" ar="الْكَلِمَةُ — أَقْسَامُ الْكَلَامِ" sub="Слово и его виды" />
     <P>Арабская грамматика состоит из 2 основных разделов:</P>
@@ -1137,9 +1166,9 @@ const LText1=()=>(
       </NumItem>
     </div>
   </div>
-);
+));
 
-const LText2=()=>(
+const LText2=memo(()=>(
   <div>
     <LH n="2" ar="الْمُعْرَبُ وَالْمَبْنِيُّ" sub="Изменяемость и неизменяемость" />
     <P>Виды слов по изменяемости и неизменяемости: слово (<T id="kalima" />) бывает двух видов: либо <T id="murab" /> (изменяемое слово), либо <T id="mabni" /> (неизменяемое слово).</P>
@@ -1184,9 +1213,9 @@ const LText2=()=>(
       <NumItem n="٦"><strong>أَسْمَاءُ الِاسْتِفْهَام</strong> (Вопросительные): <Ar className="font-bold text-gray-600">مَتَى، كَيْفَ</Ar></NumItem>
     </div>
   </div>
-);
+));
 
-const LText3=()=>(
+const LText3=memo(()=>(
   <div>
     <LH n="3" ar="الْإِعْرَابُ — التَّطْبِيقُ" sub="Грамматический разбор слов" />
     <P>Грамматический разбор зависит от того, к какому виду относится слово: <T id="mabni" /> (Неизменяемое) или <T id="murab" /> (Изменяемое).</P>
@@ -1246,9 +1275,9 @@ const LText3=()=>(
       <P className="text-xs font-bold text-violet-800">Состояние: Находится в الْجَزْم (оканчивается на ـْ).</P>
     </div>
   </div>
-);
+));
 
-const LText4=()=>(
+const LText4=memo(()=>(
   <div>
     <LH n="4" ar="الْمُذَكَّرُ وَالْمُؤَنَّثُ" sub="Род в арабском языке" />
     <RuleBox>В основе все слова в арабском языке относятся к мужскому роду (الْمُذَكَّر), и для этого не нужны доказательства. Но для того чтобы сказать, что слово женского рода (الْمُؤَنَّث), нужны доказательства (определенные признаки).</RuleBox>
@@ -1298,9 +1327,9 @@ const LText4=()=>(
     <P><strong>Непарные</strong> части тела относятся к мужскому роду:</P>
     <Exa items={[['أَنْفٌ','нос'],['رَأْسٌ','голова']]} />
   </div>
-);
+));
 
-const LText5=()=>(
+const LText5=memo(()=>(
   <div>
     <LH n="5" ar="عَدَدُ الِاسْمِ" sub="Количественные числа существительного" />
     <P>Имя (الِاسْم) в арабском языке по числу делится на три вида: <T id="mufrad" /> (единственное), <T id="musanna" /> (двойственное), <T id="jamaa" /> (множественное).</P>
@@ -1335,9 +1364,9 @@ const LText5=()=>(
       </NumItem>
     </div>
   </div>
-);
+));
 
-const LText6=()=>(
+const LText6=memo(()=>(
   <div>
     <LH n="6" ar="جَمْعُ الْمُذَكَّرِ السَّالِمِ" sub="Правильное мужское мн. число" />
     <P>Если мы хотим преобразовать слово во множественное число, мы используем один из трех видов:</P>
@@ -1375,9 +1404,9 @@ const LText6=()=>(
     <P>Слова, которые полностью подходят под правило:</P>
     <Exa items={[['مُؤْمِنٌ ← مُؤْمِنُونَ','верующие'],['مُسَافِرٌ ← مُسَافِرُونَ','путники']]} />
   </div>
-);
+));
 
-const LText7=()=>(
+const LText7=memo(()=>(
   <div>
     <LH n="7" ar="جَمْعُ الْمُؤَنَّثِ السَّالِمِ وَجَمْعُ التَّكْسِيرِ" sub="Женское и ломаное мн. число" />
     <H3>٢. <T id="jam_muannas" big /></H3>
@@ -1401,9 +1430,9 @@ const LText7=()=>(
     <P>Потому что при изменении «ломается» структура букв корня. Буквы могут исчезать, добавляться новые, меняться огласовки.</P>
     <Exa items={[['كِتَابٌ ← كُتُبٌ','книги (алиф ا пропала)'],['طَالِبٌ ← طُلَّابٌ','студенты'],['غُرْفَةٌ ← غُرَفٌ','комнаты'],['نَجْمٌ ← نُجُومٌ','звёзды']]} />
   </div>
-);
+));
 
-const LText8=()=>(
+const LText8=memo(()=>(
   <div>
     <LH n="8" ar="النَّكِرَةُ وَالْمَعْرِفَةُ" sub="Определённость и неопределённость" />
     <NoteBox>
@@ -1437,9 +1466,9 @@ const LText8=()=>(
     <P className="font-bold mt-4">Ответ на вопрос из начала урока:</P>
     <P>Первый хотел <strong>любую</strong> ручку (<Ar>قَلَمًا</Ar> — النَّكِرَةُ). Второй хотел <strong>конкретную</strong> ручку (<Ar>الْقَلَمَ</Ar> — الْمَعْرِفَةُ), о которой они говорили ранее или на которую он указывает.</P>
   </div>
-);
+));
 
-const LText9=()=>(
+const LText9=memo(()=>(
   <div>
     <LH n="9" ar="الضَّمَائِرُ الْمُنْفَصِلَةُ" sub="Раздельные местоимения" />
     <P>В арабском <Ar className="font-bold">ضَمِيرٌ</Ar> — местоимение (мн.ч. <Ar>ضَمَائِرُ</Ar>).<br/>
@@ -1464,9 +1493,9 @@ const LText9=()=>(
     <H4>3. الْغَائِبُ (3 лицо — Отсутствующий)</H4>
     <Exa items={[['هُوَ','Он (мужчина)'],['هِيَ','Она (женщина)'],['هُمَا','Они (двойственное, строго двум людям независимо от пола)'],['هُمْ','Они (муж. мн.ч.)'],['هُنَّ','Они (жен. мн.ч.)']]} />
   </div>
-);
+));
 
-const LText10=()=>(
+const LText10=memo(()=>(
   <div>
     <LH n="10" ar="الضَّمَائِرُ الْمُتَّصِلَةُ" sub="Слитные местоимения" />
     <P className="font-bold">Для чего нужны слитные местоимения?</P>
@@ -1499,9 +1528,9 @@ const LText10=()=>(
     
     <NoteBox>В арабском языке слово, которое относится к мужскому роду, в русском может относиться к женскому роду и наоборот. Обращайте на это внимание!</NoteBox>
   </div>
-);
+));
 
-const LText11=()=>(
+const LText11=memo(()=>(
   <div>
     <LH n="11" ar="أَقْسَامُ الْجُمْلَةِ" sub="Виды предложений" />
     <P>Каждый язык состоит из текстов (<Ar>نَصٌّ</Ar>). Каждый текст состоит из предложений (<Ar>جُمْلَةٌ</Ar>). Каждое предложение состоит из слов (<Ar>كَلِمَةٌ</Ar>).</P>
@@ -1528,9 +1557,9 @@ const LText11=()=>(
     <DefBox ar="الْجُمْلَةُ الْفِعْلِيَّةُ هِيَ الَّتِي تَبْدَأُ بِالْفِعْلِ" ru="Глагольное предложение — это то, которое начинается с глагола." />
     <Exa items={[['ذَهَبَ مُحَمَّدٌ','Ушёл Мухаммад'],['يَقْرَأُ الطَّالِبُ','Студент читает'],['جَاءَ هَؤُلَاءِ','Пришли эти']]} />
   </div>
-);
+));
 
-const LText12=()=>(
+const LText12=memo(()=>(
   <div>
     <LH n="12" ar="فِعْلُ الْمَاضِي" sub="Слитные местоимения с глаголами" />
     <Exa items={[['قَرَأَ — يَقْرَأُ — اِقْرَأْ','читать'],['تَوَضَّأَ — يَتَوَضَّأُ — تَوَضَّأْ','умываться'],['صَلَّى — يُصَلِّي — صَلِّ','совершать молитву'],['ذَهَبَ — يَذْهَبُ — اِذْهَبْ','идти'],['سَكَنَ — يَسْكُنُ — اُسْكُنْ','жить']]} />
@@ -1549,9 +1578,9 @@ const LText12=()=>(
     <Exa items={[['ذَهَبَ','он ушел (основа)'],['ذَهَبَتْ / سَكَنَتْ','она ушла / жила (+تْ)'],['ذَهَبَا / سَكَنَا','они двое ушли / жили (+ا для двоих независимо от пола)'],['ذَهَبُوا / قَرَأُوا','они ушли / читали (м.р. +وا)'],['ذَهَبْنَ / سَكَنَّ','они ушли / жили (ж.р. +نَ)']]} />
     <P className="text-xs text-gray-500">(Примечание: для женского рода двойственного числа форма будет ذَهَبَتَا — добавляется تَا).</P>
   </div>
-);
+));
 
-const LText13=()=>(
+const LText13=memo(()=>(
   <div>
     <LH n="13" ar="فِعْلُ الْمُضَارِعِ وَالْأَمْرِ" sub="Слитные местоимения с глаголами" />
     <H3>فِعْلُ الْمُضَارِعِ (Настоящее/будущее время)</H3>
@@ -1575,7 +1604,7 @@ const LText13=()=>(
       <Ar className="font-bold">ا</Ar> в конце <Ar>قَرَأُوا / اِذْهَبُوا</Ar> — нечитаемый алиф.
     </NoteBox>
   </div>
-);
+));
 
 /* ══════════ LESSONS ══════════ */
 const LESSONS=[
@@ -1585,12 +1614,6 @@ const LESSONS=[
   {id:10,Text:LText10,Info:Info10},{id:11,Text:LText11,Info:Info11},{id:12,Text:LText12,Info:Info12},
   {id:13,Text:LText13,Info:Info13},
 ];
-
-const clampSafe = (v, b1, b2) => {
-  const min = Math.min(b1, b2);
-  const max = Math.max(b1, b2);
-  return Math.max(min, Math.min(v, max));
-};
 
 /* ══════════ APP ══════════ */
 const App=()=>{
@@ -1609,10 +1632,10 @@ const App=()=>{
   const rightContentRef=useRef(null);
   const offsetLRef=useRef(0);
   const offsetRRef=useRef(0);
-  const panState=useRef({side:null,startX:0,startOffset:0});
+  const panState=useRef({side:null,startX:0,startOffset:0,CW:0,divX:0,s:1,cwL:0,cwR:0});
+  const dividerRef=useRef(null);
 
   // Запоминаем базовую ширину экрана для идеальной "заморозки" макета
-  const getBaseW = () => Math.min(window.innerWidth, 1080);
   const [baseW, setBaseW] = useState(getBaseW());
 
   useEffect(() => {
@@ -1649,19 +1672,11 @@ const App=()=>{
     const minR = Math.min(divX, CW - cwR - PAD);
     const newR = clampSafe(offsetRRef.current, minR, divX);
 
-    if(newL!==offsetLRef.current){
-      offsetLRef.current=newL;
-      if(leftContentRef.current)leftContentRef.current.style.transform=`translate3d(${newL}px,0,0)`;
-    } else {
-      if(leftContentRef.current)leftContentRef.current.style.transform=`translate3d(${offsetLRef.current}px,0,0)`;
-    }
+    offsetLRef.current=newL;
+    if(leftContentRef.current)leftContentRef.current.style.transform=`translate3d(${newL}px,0,0)`;
     
-    if(newR!==offsetRRef.current){
-      offsetRRef.current=newR;
-      if(rightContentRef.current)rightContentRef.current.style.transform=`translate3d(${newR}px,0,0)`;
-    } else {
-      if(rightContentRef.current)rightContentRef.current.style.transform=`translate3d(${offsetRRef.current}px,0,0)`;
-    }
+    offsetRRef.current=newR;
+    if(rightContentRef.current)rightContentRef.current.style.transform=`translate3d(${newR}px,0,0)`;
   },[baseW]);
 
   const initLayout=useCallback((preserveRatio=false)=>{
@@ -1675,10 +1690,14 @@ const App=()=>{
 
   useEffect(()=>{
     initLayout(false);
-    const ro=new ResizeObserver(()=>initLayout(true));
+    const ro=new ResizeObserver(entries=>{
+      const cw=entries[0].contentRect.width;
+      if(!cw)return;
+      applyDivX(containerRef.current,divRatioRef.current*cw,cw);
+    });
     if(containerRef.current)ro.observe(containerRef.current);
     return()=>ro.disconnect();
-  },[initLayout]);
+  },[initLayout,applyDivX]);
 
   const snapTo=useCallback((ratio)=>{
     const c=containerRef.current;
@@ -1710,11 +1729,20 @@ const App=()=>{
     if(!c)return;
     const rect=c.getBoundingClientRect();
     const s=scaleRef.current||1;
-    // Определение стороны клика
-    const divXPx=rect.width*divRatioRef.current;
-    const side=(e.clientX-rect.left)<divXPx?'left':'right';
-    panState.current={side,startX:e.clientX,startOffset:side==='left'?offsetLRef.current:offsetRRef.current};
-  },[]);
+    const viewCW=rect.width;
+    const CW=viewCW/s;
+    const divX=CW*divRatioRef.current;
+    const side=(e.clientX-rect.left)<viewCW*divRatioRef.current?'left':'right';
+    const isResp=s<=1;
+    // Cache ALL computed geometry — pointermove never needs getBoundingClientRect again
+    panState.current={
+      side, startX:e.clientX,
+      startOffset:side==='left'?offsetLRef.current:offsetRRef.current,
+      CW, divX, s,
+      cwL:leftContentRef.current?leftContentRef.current.offsetWidth:(isResp?CW:baseW),
+      cwR:rightContentRef.current?rightContentRef.current.offsetWidth:(isResp?CW:baseW),
+    };
+  },[baseW]);
 
   useEffect(()=>{
     const onMove=(e)=>{
@@ -1722,34 +1750,22 @@ const App=()=>{
         const c=containerRef.current;
         if(!c)return;
         const{startClientX,startRatio,startCw}=dragState.current;
-        const cw=startCw; 
-        const newRatio=Math.max(0,Math.min(1,startRatio+(e.clientX-startClientX)/cw));
-        applyDivX(c,newRatio*cw,cw);
+        const newRatio=clamp(startRatio+(e.clientX-startClientX)/startCw,0,1);
+        applyDivX(c,newRatio*startCw,startCw);
         return;
       }
       const ps=panState.current;
       if(!ps.side)return;
-      const c=containerRef.current;
-      if(!c)return;
-      
-      const s=scaleRef.current||1;
-      const CW=c.getBoundingClientRect().width/s;
-      const divX=CW*divRatioRef.current;
-      
+      // All geometry already cached at pan-start — no layout reads here
+      const{CW,divX,s,cwL,cwR}=ps;
       let offset=ps.startOffset+(e.clientX-ps.startX)/s;
-      const isResp = s <= 1;
-
       if(ps.side==='left'){
-        const cwL = leftContentRef.current ? leftContentRef.current.offsetWidth : (isResp ? CW : baseW);
-        const minL = Math.min(0, divX - cwL - PAD);
-        offset = clampSafe(offset, minL, 0);
-        offsetLRef.current = offset;
+        offset=clampSafe(offset,Math.min(0,divX-cwL-PAD),0);
+        offsetLRef.current=offset;
         if(leftContentRef.current)leftContentRef.current.style.transform=`translate3d(${offset}px,0,0)`;
       }else{
-        const cwR = rightContentRef.current ? rightContentRef.current.offsetWidth : (isResp ? CW : baseW);
-        const minR = Math.min(divX, CW - cwR - PAD);
-        offset = clampSafe(offset, minR, divX);
-        offsetRRef.current = offset;
+        offset=clampSafe(offset,Math.min(divX,CW-cwR-PAD),divX);
+        offsetRRef.current=offset;
         if(rightContentRef.current)rightContentRef.current.style.transform=`translate3d(${offset}px,0,0)`;
       }
     };
@@ -1758,7 +1774,7 @@ const App=()=>{
       if(isDragging.current){
         isDragging.current=false;
         document.body.style.userSelect='';
-        document.querySelectorAll('.col-divider').forEach(d=>d.classList.remove('resizing'));
+        if(dividerRef.current)dividerRef.current.classList.remove('resizing');
         const c=containerRef.current;
         if(!c)return;
         let t=divRatioRef.current;
@@ -1768,7 +1784,7 @@ const App=()=>{
         if(t!==divRatioRef.current)snapTo(t);
         return;
       }
-      panState.current={side:null,startX:0,startOffset:0};
+      panState.current={side:null,startX:0,startOffset:0,CW:0,divX:0,s:1,cwL:0,cwR:0};
     };
 
     window.addEventListener('pointermove',onMove,{passive:true});
@@ -1779,7 +1795,7 @@ const App=()=>{
       window.removeEventListener('pointerup',onUp);
       window.removeEventListener('pointercancel',onUp);
     };
-  },[applyDivX, snapTo, baseW]);
+  },[applyDivX, snapTo]);
 
   const zoomIn=useCallback(()=>setScale(p=>Math.min(parseFloat((p+.1).toFixed(1)),1.5)),[]);
   const zoomOut=useCallback(()=>setScale(p=>Math.max(parseFloat((p-.1).toFixed(1)),0.4)),[]);
@@ -1833,6 +1849,7 @@ const App=()=>{
     }
   },[]);
 
+  const onNavClick=useCallback(e=>goTo(parseInt(e.currentTarget.dataset.id)),[goTo]);
   const ActiveInfo=LESSONS[active-1].Info;
 
   // Логика ширины: адаптивная (<=100%) или замороженная базовым размером (до 1080px) при зуме
@@ -1861,7 +1878,7 @@ const App=()=>{
         <nav className="nav-strip flex-shrink-0 flex overflow-x-auto gap-1 px-3 py-2 bg-stone-100 border-b border-stone-300/60 z-20"
              role="tablist" aria-label="Уроки 1–13">
           {LESSONS.map(l=>(
-            <button key={l.id} onClick={()=>goTo(l.id)}
+            <button key={l.id} data-id={l.id} onClick={onNavClick}
               role="tab" aria-selected={active===l.id}
               aria-label={`Урок ${l.id}`}
               className={`nav-pill flex-shrink-0 min-w-[1.8rem] h-7 text-[11px] font-bold px-2 rounded-full border touch-manipulation
@@ -1875,9 +1892,8 @@ const App=()=>{
         <div ref={containerRef} className="relative flex-1 min-h-0 overflow-hidden" onPointerDown={onPanelDown}>
           
           {/* СЛОЙ, КОТОРЫЙ УВЕЛИЧИВАЕТСЯ (Только контент) */}
-          <div style={{
+          <div className="scale-host" style={{
             transform: `scale(${scale})`,
-            transformOrigin: 'top left',
             width: `calc(100% / ${scale})`,
             height: `calc(100% / ${scale})`,
             position: 'absolute',
@@ -1910,7 +1926,7 @@ const App=()=>{
           </div>
 
           {/* РАЗДЕЛИТЕЛЬ — Вынесен из зоны увеличения, всегда 100% размера */}
-          <div className="col-divider" onPointerDown={onDividerDown} title="Перетащите для смещения панелей" aria-hidden="true">
+          <div ref={dividerRef} className="col-divider" onPointerDown={onDividerDown} title="Перетащите для смещения панелей" aria-hidden="true">
             <div className="col-divider-line"></div>
             <div className="col-divider-handle"></div>
           </div>
